@@ -89,6 +89,13 @@ If you're interested in creating and/or packing your own custom asset `.o2r`/`.o
 * [**retro - OTR and O2R generator**](https://github.com/HarbourMasters64/retro)
 * [**fast64 - Blender plugin (Note that BK64 is not supported at this time)**](https://github.com/HarbourMasters/fast64)
 
+Step-by-step guides for each kind of mod live in [`docs/modding/`](docs/modding/):
+* [**Texture packs**](docs/modding/TEXTURE%20PACKS.md) - replace any of the game's textures, same-size or HD, with retro
+* [**Custom animations**](docs/modding/CUSTOM%20ANIMATIONS.md) - edit the game's animations as YAML through Torch's modding mode
+* [**Custom dialog**](docs/modding/CUSTOM%20DIALOG.md) - dialog box codes: portraits, choices, substitution, and gameplay triggers
+* [**Custom models**](docs/modding/CUSTOM%20MODELS.md) - the model format, and how the boot-sequence mascot was made
+* [**Language packs**](docs/modding/LANGUAGE%20PACKS.md) - add a new in-game language
+
 # Development
 
 ### Building

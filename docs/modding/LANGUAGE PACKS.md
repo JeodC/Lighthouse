@@ -58,7 +58,7 @@ lang/es/dialog/ASSET_A21_BLUBBER_MEET:
     - [0x4,  ""]
 ```
 
-Translate the quoted text and leave the control code alone - that leading byte chooses the speaker's portrait and box behaviour (`0x80`+ are portrait codes; small values like `0x4` are flow/clear markers), and retyping it by hand will desync the box. If your translation needs more or fewer boxes than the original, add or remove `[code, "text"]` rows freely; the importer recounts them for you.
+Translate the quoted text and leave the control code alone - that leading byte chooses the speaker's portrait and box behaviour (`0x80`+ are portrait codes; small values like `0x4` are flow/clear markers), and retyping it by hand will desync the box. The full reference for what every code does - portraits, choices, live substitution, and the gameplay-trigger boxes - is [CUSTOM DIALOG.md](CUSTOM%20DIALOG.md). If your translation needs more or fewer boxes than the original, add or remove `[code, "text"]` rows freely; the importer recounts them for you.
 
 That `+` in `COMPA+ERO` isn't a typo: the quoted text is **not** plain Unicode, it's a sequence of font-sheet slots. This pack draws the `+` slot as `Ñ`, so it renders as *COMPAÑERO*. The next section explains this properly.
 
@@ -123,7 +123,7 @@ Torch turns this into the `langinfo` manifest that Lighthouse reads to build its
 
 - **`name`** - what shows in the options menu. This label is drawn by the PC menu (not the in-game font), so the native spelling with real accents is fine here.
 - **`index`** - the language's slot; `0` for a single-language pack.
-- **`script`** - which of the game's two text paths to use. `0` (Latin) draws from the normal dialog/bold font sheets (`0x6EB`/`0x6EC`), which is what every Western release uses, so almost every pack - Spanish included - wants `0`. `1` (Japanese) switches to the path the original JP cartridge used: a separate dialog font (`0x6EA`) plus pre-rendered world-name banners, because there are far too many kanji to slot-map onto a Latin sheet. Only use `1` if your pack reuses that JP font, and if you do you must include `0x6EA`.
+- **`script`** - which of the game's two text paths to use. `0` (Latin) draws from the normal dialog/bold font sheets (`0x6EB`/`0x6EC`), which is what every Western release uses, so almost every pack - Spanish included - wants `0`. `1` (Japanese) switches to the path the original JP cartridge used: a separate dialog font (`0x6EA`) plus the kana file-select prompts, save-info line and parade, because there are far too many kanji to slot-map onto a Latin sheet. It also re-points the JP cartridge's own asset ids onto their canonical slots, so it's the setting for a pack built straight from a Japanese ROM. Only use `1` if your pack reuses that JP font - a `script: 1` pack missing `0x6EA` is rejected at load. It is **not** needed for [world-name banners](#world-name-banners); those work under `script: 0`.
 - **`region`** (optional) - the folder your assets live under inside the finished `.o2r` (`lang/<region>/`). Defaults to the cartridge region; we set `es` so a Spanish pack doesn't collide with others.
 - **`strings`** (optional) - translations for hardcoded UI text the asset pipeline can't reach; see the next section.
 
@@ -219,10 +219,10 @@ The importer walks the asset list: your edited yamls are re-encoded from `<workd
 
 If your translation only uses characters the stock font already draws - uppercase `A–Z`, digits, and punctuation - you're finished at step 4. The moment you need anything else (any accent, lowercase, or a non-Latin script), you ship a **replacement font sheet**. BK keeps its fonts as CI8 sprites and draws text with two of them:
 
-| Asset   | Sprite                               | Used for |
-|---------|--------------------------------------|----------|
-| `0x6EB` | `SPRITE_DIALOG_FONT_ALPHAMASK`       | dialog / quiz / grunty text |
-| `0x6EC` | `SPRITE_BOLD_FONT_LETTERS_ALPHAMASK` | world-name titles, bold headers |
+| Asset                                  | Used for |
+|----------------------------------------|----------|
+| `ASSET_6EB_DIALOG_FONT_ALPHAMASK`      | dialog / quiz / grunty text |
+| `ASSET_6EC_BOLD_FONT_LETTERS_ALPHAMASK` | world-name titles, bold headers |
 
 `dialog_pack` carries both font masks automatically, so you just edit the exported font asset through the normal modding flow and redraw the slots you're repurposing. Cover `0x6EB` and your dialog comes across; cover `0x6EC` as well and the bold headers do too.
 
@@ -237,7 +237,7 @@ Each repainted glyph is just a base letter with an accent added - `Á` is the `A
 
 The swap is live: glyphs apply both when the pack is chosen at boot and when you switch to it from the options menu, because the runtime re-decodes the font slots on every language change (and picks up an extended sheet's larger glyph count at the same time). Switching back to a built-in language restores the originals.
 
-Everything you replace here is **SD**. High-resolution versions are a separate, optional layer - see [#7](#7-hd-fonts--textures-optional).
+Everything you replace here is **SD**. High-resolution versions are a separate, optional layer built with Retro - see [TEXTURE PACKS.md](TEXTURE%20PACKS.md); an HD sheet ships at `alt/assets/lang/<region>/…` and composes on top of your SD pack automatically.
 
 ---
 
@@ -272,36 +272,87 @@ This matters for the parade because Lighthouse keys the alternate (PAL/JP-style)
 
 ### World-name banners
 
-The `sprite` folder covers the pause-menu **world-name banners** - the pre-rendered titles the JP release draws on its totals pages instead of bold-font text. There are twelve, one per menu page, and a pack ships them as additive sprites at `0x1600 + page`:
+The `sprite` folder covers the pause-menu **world-name banners** - the pre-rendered titles the JP release draws on its totals pages instead of bold-font text. There are twelve, one per menu page, plus the fill they're coloured from. Ship any subset you like; a page without a banner just keeps drawing its name as bold-font text.
 
-| Id | Page | Id | Page |
-|---|---|---|---|
-| `0x1600` | Totals overview | `0x1606` | Bubblegloop Swamp |
-| `0x1601` | Spiral Mountain | `0x1607` | Freezeezy Peak |
-| `0x1602` | Gruntilda's Lair | `0x1608` | Gobi's Valley |
-| `0x1603` | Mumbo's Mountain | `0x1609` | Mad Monster Mansion |
-| `0x1604` | Treasure Trove Cove | `0x160A` | Rusty Bucket Bay |
-| `0x1605` | Clanker's Cavern | `0x160B` | Click Clock Wood |
+| Asset | Page |
+|---|---|
+| `ASSET_1600_WORLD_NAME_TOTAL` | Totals overview |
+| `ASSET_1601_WORLD_NAME_SPIRAL_MOUNTAIN` | Spiral Mountain |
+| `ASSET_1602_WORLD_NAME_GRUNTILDAS_LAIR` | Gruntilda's Lair |
+| `ASSET_1603_WORLD_NAME_MUMBOS_MOUNTAIN` | Mumbo's Mountain |
+| `ASSET_1604_WORLD_NAME_TREASURE_TROVE_COVE` | Treasure Trove Cove |
+| `ASSET_1605_WORLD_NAME_CLANKERS_CAVERN` | Clanker's Cavern |
+| `ASSET_1606_WORLD_NAME_BUBBLEGLOOP_SWAMP` | Bubblegloop Swamp |
+| `ASSET_1607_WORLD_NAME_FREEZEEZY_PEAK` | Freezeezy Peak |
+| `ASSET_1608_WORLD_NAME_GOBIS_VALLEY` | Gobi's Valley |
+| `ASSET_1609_WORLD_NAME_MAD_MONSTER_MANSION` | Mad Monster Mansion |
+| `ASSET_160A_WORLD_NAME_RUSTY_BUCKET_BAY` | Rusty Bucket Bay |
+| `ASSET_160B_WORLD_NAME_CLICK_CLOCK_WOOD` | Click Clock Wood |
+| `ASSET_160C_BOLD_FONT_FILL_TEXTURE` | the fill, shared by all twelve |
 
-Each page is checked on its own: ship any subset, and a page without a banner keeps drawing its name as bold-font text. A `script: 0` pack can banner just the handful of names its repainted font can't spell and leave the rest to text. Declare each one like any other additive asset (the yaml under `sprite/`, plus its `modding.yml` line).
+You draw **two kinds of image**: one title per page you're translating, and a single fill texture shared by all of them.
 
-The sprite itself is a single-frame **RGBA32 intensity mask** - the same format as the JP originals. Draw the title as white-on-transparent artwork, not pre-coloured text: at draw time the runtime refills the mask live with the world's swirling bold-font sphere texture (the highlighted current-world page gets its own sphere; other pages the default fill). The banner renders centered on the page header at its native size and is only scaled down if it's wider than ~92% of the screen, so any sensible resolution works.
+#### 1. Draw the title
 
-(A `script: 1` pack that reuses the JP cart's own banners keeps their native ids - `0xE2C`–`0xE37` re-point to the `0x1600` slots automatically. `0xE38` is not a banner; it's the default fill texture the masks are filled with.)
+Draw it as an RGBA32 PNG, with the letter shapes in the **alpha** channel and the shading in the **blue** channel. Two rules:
 
----
+- **Blue is the brightness.** The game recolors the title as it draws, and it works out how light each pixel should be from the blue channel alone. Bright blue is a lit pixel, dark blue is a shadowed one.
+- **Shade it like the bold font.** Flat, fully-bright letters give you a flat title with no outline. The outline comes from darkening the outer pixel or two of every letter; the modelling comes from shading the rest.
 
-## 7. HD fonts & textures (optional)
+Size: **32 pixels tall**, up to about 320 wide. Every JP banner is 32 tall and they run 107-321 wide. Anything wider is just scaled back down to fit the screen.
 
-Everything above produces an **SD** pack. Players running an HD texture pack need high-resolution versions of whatever you replaced, and those are made with a different tool: [Retro](https://github.com/HarbourMasters/retro), HarbourMasters' OTR/O2R generation tool.
+#### 2. Draw the fill
 
-The two tiers live at different paths inside the o2r, scoped by language:
+One 32x32 PNG, **fully opaque** - no transparency anywhere, right out to the edges. This is the color your titles get painted with.
 
-| Tier | Path in the o2r              | Built with        |
-|------|------------------------------|-------------------|
-| SD   | `assets/lang/<region>/…`     | Torch (steps 1–5) |
-| HD   | `alt/assets/lang/<region>/…` | Retro             |
+It is stretched across the whole width of a title, so the left and right edges are the parts a wide title shows most. A soft swirl or gradient that looks good edge to edge works well; the JP one is a cyan swirl.
 
-They compose automatically. When HD/alt assets are enabled, the resource loader tries `alt/` + the requested path first and falls back to the plain path. Because the language system has already re-pointed your asset to `assets/lang/<region>/…`, the loader transparently looks for `alt/assets/lang/<region>/…`, using the HD version when present and the SD one otherwise.
+#### 3. Add them to the pack
 
-So **always ship SD**: it's the SD re-point that creates the `assets/lang/<region>/` path the HD layer keys off. A pack can be SD-only and work everywhere; HD is purely additive, for players who run an HD texture pack on top.
+Two files per banner: the yaml under `sprite/`, and the PNG named `<asset>_0_0.rgba32.png` (frame 0, chunk 0):
+
+```yaml
+# assets/lang/es/sprite/ASSET_1600_WORLD_NAME_TOTAL.yaml
+lang/es/sprite/ASSET_1600_WORLD_NAME_TOTAL:
+  FrameCount: 1
+  FormatCode: 2048   # 0x800 = RGBA32
+  Frames:
+    - ChunkCount: 1
+      Chunks:
+        - {X: 0, Y: 0}
+```
+
+Copy that verbatim for every banner; only the name changes. `{X: 0, Y: 0}` is where the image sits, not how big it is; the size is read from your PNG, so redrawing the artwork never means editing the yaml. Both `modding.yml` lines:
+
+```yaml
+  assets/lang/es/sprite/ASSET_1600_WORLD_NAME_TOTAL: assets/lang/es/sprite/ASSET_1600_WORLD_NAME_TOTAL.yaml
+  assets/lang/es/sprite/ASSET_1600_WORLD_NAME_TOTAL_0_0: assets/lang/es/sprite/ASSET_1600_WORLD_NAME_TOTAL_0_0.rgba32.png
+```
+
+The yaml's top-level key, both `modding.yml` keys and the PNG's `_0_0` stem all have to spell the name the same way, and `lang/<region>/` has to match the `region` from your `langinfo.yml`.
+
+The fill is declared the same way, but as RGBA16, so `FormatCode: 1024`:
+
+```yaml
+# assets/lang/es/sprite/ASSET_160C_BOLD_FONT_FILL.yaml
+lang/es/sprite/ASSET_160C_BOLD_FONT_FILL:
+  FrameCount: 1
+  FormatCode: 1024   # 0x400 = RGBA16
+  Frames:
+    - ChunkCount: 1
+      Chunks:
+        - {X: 0, Y: 0}
+```
+
+...plus its two `modding.yml` lines, with the PNG named `ASSET_160C_BOLD_FONT_FILL_TEXTURE_0_0.rgba16.png`.
+
+One thing that looks alarming but isn't: open a banner in a graphics debugger and you'll find it broken into several overlapping horizontal strips. Titles are too wide to load in one piece, so the game splits them automatically. Nothing to fix.
+
+If a title needs nudging off-center, add a `FrameHeader` to the frame - `x`/`y` shift it:
+
+```yaml
+    - ChunkCount: 1
+      FrameHeader: {x: 0, y: -4}
+      Chunks:
+        - {X: 0, Y: 0}
+```
