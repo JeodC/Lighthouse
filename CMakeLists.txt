@@ -828,3 +828,9 @@ endif()
 
 set(CPACK_PROJECT_CONFIG_FILE ${CMAKE_SOURCE_DIR}/cmake/configure-packaging.cmake)
 include(cmake/packaging.cmake)
+
+# Lightbulb editor
+option(BUILD_EDITOR "Build the Lightbulb asset editor/viewer" OFF)
+if(BUILD_EDITOR)
+    add_subdirectory(editor)
+endif()

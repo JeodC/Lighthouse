@@ -49,7 +49,12 @@ if (-not (Test-Path $clangFormatFilePath)) {
 
 # --- Find and format source files ---
 $basePath = (Resolve-Path .).Path
-$files = Get-ChildItem -Path "$basePath\src\port" -Recurse -File |
+$paths = @(
+    "$basePath\src\port",
+    "$basePath\editor"
+)
+
+$files = Get-ChildItem -Path $paths -Recurse -File |
     Where-Object { 
         ($_.Extension -in '.c', '.cpp', '.h', '.hpp') -and
         (-not ($_.FullName -like "*\build*" -or $_.FullName -like "*\core1\*"))

@@ -62,6 +62,27 @@ struct
 /* .code */
 static MapSkyInfo sSkyOverride;
 
+#ifdef EDITOR
+MapSkyInfo* sky_getMapSkyInfo(enum map_e map_id);
+s32 lb_skyLayers(s32 map_id, s16 outModel[3], f32 outScale[3], f32 outRotSpeed[3]) {
+    MapSkyInfo* info = sky_getMapSkyInfo((enum map_e)map_id);
+    s32 n = 0;
+    s32 i;
+    if (info == NULL || info->map == 0) {
+        return 0;
+    }
+    for (i = 0; i < 3; i++) {
+        if (info->sky_list[i].model_id) {
+            outModel[n] = info->sky_list[i].model_id;
+            outScale[n] = info->sky_list[i].scale;
+            outRotSpeed[n] = info->sky_list[i].rotation_speed;
+            n++;
+        }
+    }
+    return n;
+}
+#endif
+
 MapSkyInfo * sky_getMapSkyInfo(enum map_e map_id){
     int models[3];
     float scales[3], rotations[3];

@@ -744,6 +744,16 @@ void modelRender_geoCmd_SORT(Gfx **gfx, Mtx **mtx, struct bk_geo_cmd_s *arg2){
 
     f14 = D_80383C68[0]*D_80383C78[0] + D_80383C68[1]*D_80383C78[1] + D_80383C68[2]*D_80383C78[2];
     f14 = -f14;
+#ifdef EDITOR
+    if(cmd->unk20 & 1){
+        D_80383C64 = f14;
+        if(cmd->unk22)
+            modelRender_executeGeoCmds(gfx, mtx, (BKGeoCmd*)((u8*)cmd + cmd->unk22));
+        if(cmd->unk24)
+            modelRender_executeGeoCmds(gfx, mtx, (BKGeoCmd*)((u8*)cmd + cmd->unk24));
+        return;
+    }
+#endif
     if(cmd->unk20 & 1){
         if(0.0f <= f14 && (tmp_v0 = cmd->unk24)){
             D_80383C64 = f14;
@@ -815,6 +825,37 @@ void modelRender_geoCmd_BONE(Gfx **gfx, Mtx **mtx, struct bk_geo_cmd_s *arg2){
     FrameInterpolation_RecordCloseChild();
 }
 
+#ifdef EDITOR
+#define LB_DL_MAX 128
+s32 gLbDlSolo = -1;
+s32 gLbDlCount = 0;
+s32 gLbDlOffsets[LB_DL_MAX];
+s32 gLbDlKinds[LB_DL_MAX];
+s32 gLbDlMaskEnable = 0;
+s32 gLbDlMask[LB_DL_MAX];
+s32 gLbDepthModeOverride = -1;
+s32 gLbDepthModeUsed = -1;
+static s32 sLbDlCursor = 0;
+
+void lb_subDlResetFrame(void) {
+    sLbDlCursor = 0;
+    gLbDlCount = 0;
+}
+
+static s32 lb_subDlVisible(s32 kind, s32 offset) {
+    s32 idx = sLbDlCursor++;
+    if (idx < LB_DL_MAX) {
+        gLbDlOffsets[idx] = offset;
+        gLbDlKinds[idx] = kind;
+    }
+    gLbDlCount = sLbDlCursor;
+    if (gLbDlMaskEnable) {
+        return idx >= LB_DL_MAX || gLbDlMask[idx];
+    }
+    return gLbDlSolo < 0 || gLbDlSolo == idx;
+}
+#endif
+
 //cmd3_LOAD_DL
 void modelRender_geoCmd_LOADDL(Gfx **gfx, Mtx **mtx, struct bk_geo_cmd_s *arg2){
     GeoCmd3 *cmd = (GeoCmd3 *)arg2;
@@ -822,6 +863,9 @@ void modelRender_geoCmd_LOADDL(Gfx **gfx, Mtx **mtx, struct bk_geo_cmd_s *arg2){
 
     if(D_80370990){
         vptr = &modelRenderDisplayList->list[cmd->unk8];
+#ifdef EDITOR
+        if (lb_subDlVisible(3, cmd->unk8))
+#endif
         gSPDisplayList((*gfx)++, (Gfx *)osVirtualToPhysical(vptr));
     }
 }
@@ -832,6 +876,9 @@ void modelRender_geoCmd_SKINNING(Gfx **gfx, Mtx **mtx, struct bk_geo_cmd_s *arg2
     int i;
 
     if(D_80370990){
+#ifdef EDITOR
+        if (lb_subDlVisible(5, cmd->unk8[0]))
+#endif
         gSPDisplayList((*gfx)++, (Gfx *)osVirtualToPhysical(modelRenderDisplayList->list + cmd->unk8[0]));
     }
 
@@ -842,6 +889,9 @@ void modelRender_geoCmd_SKINNING(Gfx **gfx, Mtx **mtx, struct bk_geo_cmd_s *arg2
             FrameInterpolation_RecordOpenChild("skin", (uintptr_t)i);
             mlMtxApply(*mtx);
             gSPMatrix((*gfx)++, (*mtx)++, G_MTX_PUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+#ifdef EDITOR
+            if (lb_subDlVisible(5, cmd->unk8[i]))
+#endif
             gSPDisplayList((*gfx)++, (Gfx *)osVirtualToPhysical(modelRenderDisplayList->list + cmd->unk8[i]));
             FrameInterpolation_RecordCloseChild();
         }
@@ -857,6 +907,9 @@ void modelRender_geoCmd_CALL(Gfx **gfx, Mtx **mtx, struct bk_geo_cmd_s *arg2){
 //Cmd7_LOAD_DL???
 void modelRender_geoCmd_LOADDL2(Gfx **gfx, Mtx **mtx, struct bk_geo_cmd_s *arg2){
     if(D_80370990){
+#ifdef EDITOR
+        if (lb_subDlVisible(7, ((GeoCmd7*)arg2)->unkA))
+#endif
         gSPDisplayList((*gfx)++, (Gfx *)osVirtualToPhysical(modelRenderDisplayList->list + ((GeoCmd7*)arg2)->unkA));
     }
 }
@@ -1067,6 +1120,10 @@ BKModelBin *modelRender_draw(Gfx **gfx, Mtx **mtx, f32 position[3], f32 rotation
     // [port] Extended draw distance: scale/extend the model cull, keep the fade flag.
     port_applyModelDrawDistanceCull(&D_80383710, &D_8038370C, &D_80383708);
 
+#ifdef EDITOR
+    lb_subDlResetFrame();
+#endif
+
     D_80370990 = 0;
     viewport_getPosition_vec3f(modelRenderCameraPosition);
     viewport_getRotation_vec3f(modelRenderCameraRotation);
@@ -1193,6 +1250,13 @@ BKModelBin *modelRender_draw(Gfx **gfx, Mtx **mtx, f32 position[3], f32 rotation
             }
         }
     }
+
+#ifdef EDITOR
+    if (gLbDepthModeOverride >= 0) {
+        modelRenderDepthMode = (enum model_render_depth_mode_e)gLbDepthModeOverride;
+    }
+    gLbDepthModeUsed = (s32)modelRenderDepthMode;
+#endif
 
     if(modelRenderDepthMode != MODEL_RENDER_DEPTH_NONE){
         gSPSetGeometryMode((*gfx)++, G_ZBUFFER);
