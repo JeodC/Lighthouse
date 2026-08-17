@@ -262,9 +262,9 @@ void RegisterCameraPatches_Init() {
         }
         auto* ev = (ViewportFrustumUpdate*)event;
         const float kDegToRad = (float)(M_PI / 180.0);
-        const float kFrustumZX = 45.168514251708984f;  // must match viewport.c
-        const float kFrustumZY = 34.20201110839844f;   // must match viewport.c
-        const float kVanillaFrustumX = 89.21774f;      // must match viewport_update()
+        const float kFrustumZX = 45.168514251708984f; // must match viewport.c
+        const float kFrustumZY = 34.20201110839844f;  // must match viewport.c
+        const float kVanillaFrustumX = 89.21774f;     // must match viewport_update()
         const float kVanillaFrustumY = 93.9692611694336f;
         const float kPad = 3.0f * kDegToRad; // slack that keeps actors from popping in at the edge
         const float kMaxHalfAngle = 88.0f * kDegToRad;
