@@ -193,6 +193,8 @@ public:
     RoomState roomState;
     std::string lastWarnedRomhackLabel;
     std::string lastWarnedRandoState;
+    std::string lastClearedTeamStateSig;
+    bool gameMismatchWithTeam = false;
     bool hasCheckedRandoCompat = false;
 
     void Enable();

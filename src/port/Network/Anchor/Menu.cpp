@@ -274,6 +274,7 @@ void AnchorAdminMenu(WidgetInfo& info) {
         anchor->roomState.seed = IS_RANDO ? (int32_t)RANDO_SEED : 0;
         anchor->lastWarnedRomhackLabel.clear();
         anchor->lastWarnedRandoState.clear();
+        anchor->lastClearedTeamStateSig.clear();
         anchor->SendPacket_UpdateRoomState();
     }
     UIWidgets::PopStyleButton();

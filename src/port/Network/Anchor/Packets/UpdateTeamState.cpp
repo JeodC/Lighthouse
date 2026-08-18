@@ -3,9 +3,13 @@
 #include <nlohmann/json.hpp>
 #include <libultraship/libultraship.h>
 #include "port/UI/Notification.h"
+#include "port/UI/LighthouseGui.hpp"
+#include "port/UI/LighthouseModals.h"
 #include "port/Enhancements/Retention/Retention.h"
+#include "port/Romhack/RomhackCompat.h"
 #include "port/Rando/Rando.h"
 #include <algorithm>
+#include <string>
 #include <vector>
 
 #include "variables.h"
@@ -37,6 +41,15 @@ extern void port_hutSmash_restore(const std::vector<int32_t>& flat);
  * the team queue (assumed drained); receiving replays any queued packets after applying state.
  */
 
+// Identifies the game a team state was captured under.
+static std::string TeamStateSignature() {
+    std::string sig = Lighthouse::CurrentRomhackLabel();
+    if (IS_RANDO) {
+        sig += " (rando:" + std::to_string((int32_t)RANDO_SEED) + ")";
+    }
+    return sig;
+}
+
 // Snapshot a decomp byte-array score/flag section into a JSON byte array.
 static std::vector<u8> ScoreBytes(void (*getSizeAndPtr)(s32*, u8**)) {
     s32 size;
@@ -46,7 +59,9 @@ static std::vector<u8> ScoreBytes(void (*getSizeAndPtr)(s32*, u8**)) {
 }
 
 void Anchor::SendPacket_UpdateTeamState() {
-    if (!IsSaveLoaded() || !roomState.syncItemsAndFlags) {
+    // Keep a mismatched client from overwriting the team's stored save
+    // with progress that doesn't apply to it.
+    if (!IsSaveLoaded() || !roomState.syncItemsAndFlags || gameMismatchWithTeam) {
         return;
     }
 
@@ -54,6 +69,7 @@ void Anchor::SendPacket_UpdateTeamState() {
     payload["type"] = UPDATE_TEAM_STATE;
     payload["targetTeamId"] = CVarGetString(CVAR_REMOTE_ANCHOR("TeamId"), "default");
     payload["queue"] = json::array();
+    payload["state"]["gameSig"] = TeamStateSignature();
     payload["state"]["fileProgressFlags"] = ScoreBytes(fileProgressFlag_getSizeAndPtr);
     payload["state"]["jiggies"] = ScoreBytes(jiggyscore_getSizeAndPtr);
     payload["state"]["honeycombs"] = ScoreBytes(honeycombscore_getSizeAndPtr);
@@ -118,6 +134,50 @@ static void ApplyTeamBytes(nlohmann::json& bytes, void (*getSizeAndPtr)(s32*, u8
 void Anchor::HandlePacket_UpdateTeamState(nlohmann::json& payload) {
     if (!roomState.syncItemsAndFlags) {
         return;
+    }
+
+    if (payload.contains("state") && payload["state"].contains("gameSig")) {
+        const std::string incoming = payload["state"]["gameSig"].get<std::string>();
+        const std::string local = TeamStateSignature();
+        if (incoming != local) {
+            const std::string ownTeam = CVarGetString(CVAR_REMOTE_ANCHOR("TeamId"), "default");
+            bool teammatePlaying = false;
+            for (auto& [clientId, client] : clients) {
+                if (!client.self && client.online && client.isSaveLoaded && client.teamId == ownTeam) {
+                    teammatePlaying = true;
+                    break;
+                }
+            }
+
+            if (!teammatePlaying) {
+                if (incoming != lastClearedTeamStateSig) {
+                    lastClearedTeamStateSig = incoming;
+                    SendPacket_ClearTeamState(ownTeam);
+                    SendPacket_UpdateTeamState(); // no-op until a file is loaded
+                    Notification::Emit({
+                        .message = "Reset team state to current game/save",
+                    });
+                }
+                return;
+            }
+
+            // Someone is mid-session on a different game. Our progress doesn't belong in their
+            // save any more than theirs belongs in ours, so stop sending ours too until we match.
+            gameMismatchWithTeam = true;
+            if (incoming != lastClearedTeamStateSig) {
+                lastClearedTeamStateSig = incoming;
+                std::string msg = "This team is playing a different game, so their save was not\n"
+                                  "applied to your file.\n\n";
+                msg += "    Their game:  " + incoming + "\n";
+                msg += "    Your file:   " + local + "\n\n";
+                msg += "Your save is untouched, and nothing of yours is being shared with them.\n"
+                       "Load a file that matches theirs, or start a new one, to join the session.";
+                LighthouseGui::RegisterPopup("Team State Mismatch", msg);
+            }
+            return;
+        }
+        lastClearedTeamStateSig.clear();
+        gameMismatchWithTeam = false;
     }
 
     isHandlingUpdateTeamState = true;
