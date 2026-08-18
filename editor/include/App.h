@@ -22,12 +22,13 @@ enum LayerBit : uint32_t {
     kLayerCameras = 1u << 10,
     kLayerRadius = 1u << 11,
     kLayerBoundary = 1u << 12,
+    kLayerUnregistered = 1u << 13,
 };
 struct Config {
     std::string lastO2rPath;
     float cameraSpeed = 40.0f;
     bool actorOverrides = true;
-    uint32_t layers = 0xFFFFFFFFu;
+    uint32_t layers = 0xFFFFFFFFu & ~kLayerUnregistered;
 };
 bool LoadConfig(Config& out);
 bool SaveConfig(const Config& cfg);

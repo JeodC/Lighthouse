@@ -161,6 +161,8 @@ struct MapExtraModel {
     float scale;
 };
 int MapExtraModels(uint16_t mapId, MapExtraModel out[3]);
+bool ActorIsSpawnable(uint32_t actorId);
+bool ActorRegisteredForMap(uint16_t mapId, uint32_t actorId);
 struct SkyLayerInfo {
     uint32_t modelId;
     float scale;

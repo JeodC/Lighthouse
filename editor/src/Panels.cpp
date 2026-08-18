@@ -480,9 +480,15 @@ bool App::RenderLevelGameFrame() {
         mPickTargets.push_back(target);
     };
 
+    const uint16_t mapId = scene.entries[scene.sel].mapId;
     for (const Lightbulb::SetupNode& nd : mSetup.nodes) {
         const int pickSel = (int)mSetup.props.size() + (int)(&nd - mSetup.nodes.data());
         bool drawn = false;
+        if (nd.category == 6 && !(mConfig.layers & Lightbulb::kLayerUnregistered) && mRomhackPath.empty() &&
+            !Lightbulb::EditorEntryPointId(nd.id) && Lightbulb::ActorIsSpawnable(nd.id) &&
+            !Lightbulb::ActorRegisteredForMap(mapId, nd.id)) {
+            continue;
+        }
         if (nd.category == 6) {
             const uint32_t assetId = Lightbulb::ActorDisplayAsset(nd.id);
             if (assetId) {
@@ -965,6 +971,7 @@ void App::DrawLayersPanel() {
         { "Models", Lightbulb::kLayerModels },
         { "Sprites", Lightbulb::kLayerSprites },
         { "Actors", Lightbulb::kLayerActors },
+        { "Unregistered actors", Lightbulb::kLayerUnregistered },
         { "Entry points", Lightbulb::kLayerEntries },
         { "Warps", Lightbulb::kLayerWarps },
         { "Camera path triggers", Lightbulb::kLayerCamMarkers },
@@ -989,6 +996,9 @@ void App::DrawLayersPanel() {
     ImGui::Separator();
     for (const auto& row : kRows) {
         changed |= ImGui::CheckboxFlags(row.name, &mConfig.layers, row.bit);
+        if (row.bit == Lightbulb::kLayerUnregistered && ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Show actor spawns this map's spawn queues never register. Vanilla only, romhacks unaffected.");
+        }
     }
     if (changed) {
         SaveSettings();
@@ -1056,6 +1066,11 @@ void App::DrawSelectionProperties() {
             ImGui::Text("Actor       : %s", actorName ? actorName : "(unnamed)");
         }
         ImGui::Text("Id          : %X", node.id);
+        if (isSpawn && !Lightbulb::EditorEntryPointId(node.id) && Lightbulb::ActorIsSpawnable(node.id) &&
+            mRomhackPath.empty() && mLevelScene.sel >= 0 && mLevelScene.sel < (int)mLevelScene.entries.size() &&
+            !Lightbulb::ActorRegisteredForMap(mLevelScene.entries[mLevelScene.sel].mapId, node.id)) {
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 1.0f, 1.0f), "Never spawns  : map doesn't register this actor");
+        }
         const uint32_t modelAsset = isSpawn ? Lightbulb::ActorModelAsset(node.id) : 0;
         if (modelAsset) {
             ImGui::Text("Model asset : %s", assetFullName(mModelIndex, modelAsset).c_str());

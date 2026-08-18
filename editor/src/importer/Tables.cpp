@@ -28,6 +28,32 @@ struct MapExtras {
 const MapExtras kMapExtras[] = {
     { 0x0B, { { 0x88E, { 5500.0f, 0.0f, 0.0f }, 1.0f } } },
 };
+
+struct SpawnSetRow {
+    uint16_t overlay;
+    uint16_t actor;
+};
+const SpawnSetRow kSpawnSets[] = {
+#include "SpawnSets.inc"
+};
+
+struct MapOverlayRow {
+    uint16_t map;
+    uint16_t overlay;
+};
+const MapOverlayRow kMapOverlays[] = {
+#include "MapOverlays.inc"
+};
+
+bool spawnSetHas(uint16_t overlay, uint32_t actorId) {
+    const SpawnSetRow* end = kSpawnSets + sizeof(kSpawnSets) / sizeof(kSpawnSets[0]);
+    const SpawnSetRow key = { overlay, (uint16_t)actorId };
+    const SpawnSetRow* found =
+        std::lower_bound(kSpawnSets, end, key, [](const SpawnSetRow& row, const SpawnSetRow& want) {
+            return row.overlay != want.overlay ? row.overlay < want.overlay : row.actor < want.actor;
+        });
+    return found != end && found->overlay == overlay && found->actor == actorId;
+}
 } // namespace
 } // namespace Lightbulb
 
@@ -48,6 +74,26 @@ const char* ActorEnumName(uint32_t actorId) {
     const ActorName* found =
         std::lower_bound(kActorNames, end, actorId, [](const ActorName& row, uint32_t id) { return row.actor < id; });
     return (found != end && found->actor == actorId) ? found->name : nullptr;
+}
+
+bool ActorIsSpawnable(uint32_t actorId) {
+    for (const SpawnSetRow& row : kSpawnSets) {
+        if (row.actor == actorId) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ActorRegisteredForMap(uint16_t mapId, uint32_t actorId) {
+    uint16_t overlay = 0;
+    for (const MapOverlayRow& row : kMapOverlays) {
+        if (row.map == mapId) {
+            overlay = row.overlay;
+            break;
+        }
+    }
+    return spawnSetHas(0, actorId) || (overlay != 0 && spawnSetHas(overlay, actorId));
 }
 
 int MapExtraModels(uint16_t mapId, MapExtraModel out[3]) {
