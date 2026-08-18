@@ -279,6 +279,16 @@ void AnchorAdminMenu(WidgetInfo& info) {
     }
     UIWidgets::PopStyleButton();
 
+    UIWidgets::CVarCheckbox(
+        "Clear Mismatched Team State Without Asking", CVAR_REMOTE_ANCHOR("RoomSettings.AutoClearMismatchedState"),
+        UIWidgets::CheckboxOptions()
+            .DefaultValue(false)
+            .Color(THEME_COLOR)
+            .Tooltip(
+                "A team save recorded under a different game is never applied to your file. By default you're asked "
+                "whether to clear the copy the server is holding; enable this to clear it without asking. Only applies "
+                "to you as the room owner, and never while a teammate is playing from that save."));
+
     // if (UIWidgets::CVarCombobox("PvP Mode:", CVAR_REMOTE_ANCHOR("RoomSettings.PvpMode"), pvpModes,
     //                             UIWidgets::ComboboxOptions()
     //                                 .DefaultIndex(1)

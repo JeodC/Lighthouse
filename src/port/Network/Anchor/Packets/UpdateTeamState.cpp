@@ -58,10 +58,25 @@ static std::vector<u8> ScoreBytes(void (*getSizeAndPtr)(s32*, u8**)) {
     return std::vector<u8>(addr, addr + size);
 }
 
+bool Anchor::LocalGameMatchesRoom() {
+    if (roomState.romhackName.empty()) {
+        return true;
+    }
+
+    if (Lighthouse::CurrentRomhackLabel() != roomState.romhackName) {
+        return false;
+    }
+    const bool localRando = IS_RANDO;
+    if (localRando != roomState.isRando) {
+        return false;
+    }
+    return !localRando || (int32_t)RANDO_SEED == roomState.seed;
+}
+
 void Anchor::SendPacket_UpdateTeamState() {
-    // Keep a mismatched client from overwriting the team's stored save
-    // with progress that doesn't apply to it.
-    if (!IsSaveLoaded() || !roomState.syncItemsAndFlags || gameMismatchWithTeam) {
+    // Don't overwrite the team's stored save with progress from a different game than the room is
+    // running. This covers answering a teammate's request as well as our own saves.
+    if (!IsSaveLoaded() || !roomState.syncItemsAndFlags || !LocalGameMatchesRoom()) {
         return;
     }
 
@@ -120,6 +135,16 @@ void Anchor::SendPacket_ClearTeamState(std::string teamId) {
     SendJsonToRemote(payload);
 }
 
+// Drops the room's stored team save and reseeds it from our own file, so the room carries the game
+// we're actually playing. Only ever called for the room owner with nobody playing from the old one.
+void Anchor::ClearMismatchedTeamState(std::string teamId) {
+    SendPacket_ClearTeamState(teamId);
+    SendPacket_UpdateTeamState();
+    Notification::Emit({
+        .message = "Cleared team state from a different game",
+    });
+}
+
 // Overwrites a local byte section with the authoritative team-state array (no additive merge).
 static void ApplyTeamBytes(nlohmann::json& bytes, void (*getSizeAndPtr)(s32*, u8**)) {
     s32 size;
@@ -137,6 +162,9 @@ void Anchor::HandlePacket_UpdateTeamState(nlohmann::json& payload) {
     }
 
     if (payload.contains("state") && payload["state"].contains("gameSig")) {
+        if (selectedFileNum == DEFAULT_FILE_NUM) {
+            return;
+        }
         const std::string incoming = payload["state"]["gameSig"].get<std::string>();
         const std::string local = TeamStateSignature();
         if (incoming != local) {
@@ -148,36 +176,38 @@ void Anchor::HandlePacket_UpdateTeamState(nlohmann::json& payload) {
                     break;
                 }
             }
+            const bool mayClear = ownClientId != 0 && roomState.ownerClientId == ownClientId && !teammatePlaying;
 
-            if (!teammatePlaying) {
-                if (incoming != lastClearedTeamStateSig) {
-                    lastClearedTeamStateSig = incoming;
-                    SendPacket_ClearTeamState(ownTeam);
-                    SendPacket_UpdateTeamState(); // no-op until a file is loaded
-                    Notification::Emit({
-                        .message = "Reset team state to current game/save",
-                    });
-                }
+            if (incoming == lastClearedTeamStateSig) {
+                return;
+            }
+            lastClearedTeamStateSig = incoming;
+
+            std::string msg = "The team save stored for this room was recorded under a different\n"
+                              "game, so it was not applied to your file.\n\n";
+            msg += "    Stored save:  " + incoming + "\n";
+            msg += "    Your file:    " + local + "\n\n";
+            msg += "Your save is untouched, and nothing of yours is being shared with it.\n";
+
+            if (!mayClear) {
+                // Someone else's session to resolve: either they own the room, or a teammate is
+                // mid-session on it. Say what's happening and leave their save alone.
+                msg += "\nLoad a file that matches it, or start a new one, to join the session.";
+                LighthouseGui::RegisterPopup("Team State Mismatch", msg);
                 return;
             }
 
-            // Someone is mid-session on a different game. Our progress doesn't belong in their
-            // save any more than theirs belongs in ours, so stop sending ours too until we match.
-            gameMismatchWithTeam = true;
-            if (incoming != lastClearedTeamStateSig) {
-                lastClearedTeamStateSig = incoming;
-                std::string msg = "This team is playing a different game, so their save was not\n"
-                                  "applied to your file.\n\n";
-                msg += "    Their game:  " + incoming + "\n";
-                msg += "    Your file:   " + local + "\n\n";
-                msg += "Your save is untouched, and nothing of yours is being shared with them.\n"
-                       "Load a file that matches theirs, or start a new one, to join the session.";
-                LighthouseGui::RegisterPopup("Team State Mismatch", msg);
+            if (CVarGetInteger(CVAR_REMOTE_ANCHOR("RoomSettings.AutoClearMismatchedState"), 0)) {
+                ClearMismatchedTeamState(ownTeam);
+                return;
             }
+
+            msg += "\nClear it and start this room fresh on your game?";
+            LighthouseGui::RegisterPopup("Team State Mismatch", msg, "Clear It", "Keep It",
+                                         [this, ownTeam]() { ClearMismatchedTeamState(ownTeam); });
             return;
         }
         lastClearedTeamStateSig.clear();
-        gameMismatchWithTeam = false;
     }
 
     isHandlingUpdateTeamState = true;

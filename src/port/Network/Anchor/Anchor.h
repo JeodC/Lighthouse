@@ -232,6 +232,8 @@ public:
 
     void SendPacket_AuthorityState(u8 activity, bool claimed);
     void SendPacket_ClearTeamState(std::string teamId);
+    void ClearMismatchedTeamState(std::string teamId);
+    bool LocalGameMatchesRoom();
     void SendPacket_DamagePlayer(u32 clientId, u8 damageEffect, u8 damage);
     void SendPacket_EntranceDiscovered(u16 entranceIndex);
     void SendPacket_GameComplete();
