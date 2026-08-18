@@ -192,6 +192,14 @@ static s32 sCubeMax[3] = { 0, 0, 0 };
 
 void BK_LOG_WARN(const char* fmt, ...) {
 }
+void BK_LOG_DEBUG(const char* fmt, ...) {
+}
+int port_audioHeld(void) {
+    return 0;
+}
+int port_audioStallHold(void) {
+    return 0;
+}
 void func_8033A5B8(BoneTransformList* self, s32 bone_id, f32 arg2[4], f32 scale[3], f32 arg4[3]) {
 }
 bool vec4f_isZero(f32 arg0[4]) {
