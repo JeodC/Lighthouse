@@ -71,6 +71,7 @@ set(ED_DECOMP_SOURCES
 set(ED_SHARED_PORT_SOURCES
     ${LH}/src/port/Resource/Importers/ModelFactory.cpp
     ${LH}/src/port/Resource/Importers/SpriteFactory.cpp
+    ${LH}/src/port/Resource/Importers/SoundFactory.cpp
     ${LH}/src/port/FilePicker.cpp
     ${LH}/src/port/Resource/Importers/AnimFactory.cpp
     ${LH}/src/port/Resource/Importers/MapFactory.cpp

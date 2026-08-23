@@ -49,6 +49,7 @@
 #include "Resource/Importers/DialogFactory.h"
 #include "Resource/Importers/MapFactory.h"
 #include "Resource/Importers/ModelFactory.h"
+#include "Resource/Importers/SoundFactory.h"
 #include "Resource/Importers/SpriteFactory.h"
 #include "src/port/Enhancements/Events/Hooks/Events.h"
 #include "UI/LighthouseGui.hpp"
@@ -75,7 +76,6 @@ constexpr int kDemoAudioHoldFrames = 2;
 // Attract-demo audio hold
 std::atomic<bool> sHoldAudio{ false };
 int sHoldFramesRemaining = 0;
-std::vector<std::shared_ptr<Ship::IResource>> sSoundfontResources;
 
 // Frame pacing and rendering
 bool sInterpolationRecorded = false;
@@ -100,14 +100,6 @@ extern s32 D_80275610;
 
 bool prevAltAssets = false;
 // bool gEnableGammaBoost = true;
-
-// Soundfont symbols
-u8* soundfont1ctl_ROM_START = NULL;
-u8* soundfont1ctl_ROM_END = NULL;
-u8* soundfont1tbl_ROM_START = NULL;
-u8* soundfont2ctl_ROM_START = NULL;
-u8* soundfont2ctl_ROM_END = NULL;
-u8* soundfont2tbl_ROM_START = NULL;
 }
 
 std::vector<uint8_t*> MemoryPool;
@@ -197,6 +189,10 @@ static void RegisterResourceFactories(const std::shared_ptr<Ship::ResourceLoader
                                     static_cast<uint32_t>(Torch::ResourceType::BKDemoInput), 0);
     loader->RegisterResourceFactory(std::make_shared<Factories::ResourceFactoryBinaryBKMapV0>(), RESOURCE_FORMAT_BINARY,
                                     "BKMap", static_cast<uint32_t>(Torch::ResourceType::BKMap), 0);
+    loader->RegisterResourceFactory(std::make_shared<Factories::ResourceFactoryBinaryBKSoundV0>(),
+                                    RESOURCE_FORMAT_BINARY, "BKSound", Factories::kBKSoundResourceType, 0);
+    loader->RegisterResourceFactory(std::make_shared<Factories::ResourceFactoryBinaryBKSoundBankV0>(),
+                                    RESOURCE_FORMAT_BINARY, "BKSoundBank", Factories::kBKSoundBankResourceType, 0);
     loader->RegisterResourceFactory(std::make_shared<Fast::ResourceFactoryBinaryTextureV0>(), RESOURCE_FORMAT_BINARY,
                                     "Texture", static_cast<uint32_t>(Fast::ResourceType::Texture), 0);
     loader->RegisterResourceFactory(std::make_shared<Fast::ResourceFactoryBinaryTextureV1>(), RESOURCE_FORMAT_BINARY,
@@ -310,7 +306,6 @@ void GameEngine::FinishInit() {
     Lighthouse::RestoreModSelectionAfterLaunchHack();
     MaybeShowModConflictPopup();
     MaybeShowRomhackBaseMismatchPopup();
-    Instance->AudioInit();
     // Instance->LoadDictionary();
     // Instance->LoadPlayerAnims();
 #if defined(__SWITCH__) || defined(__WIIU__)
@@ -374,7 +369,6 @@ void GameEngine::ScaleImGui() {
 void GameEngine::Create(int argc, char* argv[]) {
     Lighthouse::ParseLaunchArgs(argc, argv);
     const auto instance = Instance = new GameEngine();
-    // instance->AudioInit();
     // DisplayListPatch::Run();
     // BK renders at 292x216, not the standard 320x240.
     GfxSetNativeDimensions(292, 216);
@@ -399,6 +393,7 @@ void GameEngine::Create(int argc, char* argv[]) {
 
 extern void ResourceHelpers_ClearRefCache();
 void ReleaseSoundfonts();
+extern "C" void port_alBnkfFreeAll();
 
 void GameEngine::Destroy() {
     if (Instance->context && Instance->context->GetControlDeck()) {
@@ -516,46 +511,7 @@ extern "C" int port_audioHeld(void) {
 }
 
 void ReleaseSoundfonts() {
-    sSoundfontResources.clear();
-}
-
-static void LoadSoundfonts() {
-    auto rm = Ship::Context::GetRawInstance()->GetResourceManager();
-    sSoundfontResources.clear();
-
-    auto loadBlob = [&rm](const char* path, uint8_t*& start, uint8_t*& end) {
-        auto res = rm->LoadResource(path);
-        if (res) {
-            start = (uint8_t*)res->GetRawPointer();
-            end = start + res->GetPointerSize();
-            AudioDma_Register(start, res->GetPointerSize());
-            sSoundfontResources.push_back(res);
-        } else {
-            SPDLOG_ERROR("[Audio] Failed to load soundfont '{}'", path);
-        }
-    };
-
-    loadBlob("soundfont/soundfont1ctl", soundfont1ctl_ROM_START, soundfont1ctl_ROM_END);
-    loadBlob("soundfont/soundfont2ctl", soundfont2ctl_ROM_START, soundfont2ctl_ROM_END);
-
-    // tbl assets don't need END — only START is referenced
-    auto loadTbl = [&rm](const char* path, uint8_t*& start) {
-        auto res = rm->LoadResource(path);
-        if (res) {
-            start = (uint8_t*)res->GetRawPointer();
-            AudioDma_Register(start, res->GetPointerSize());
-            sSoundfontResources.push_back(res);
-        } else {
-            SPDLOG_ERROR("[Audio] Failed to load soundfont '{}'", path);
-        }
-    };
-
-    loadTbl("soundfont/soundfont1tbl", soundfont1tbl_ROM_START);
-    loadTbl("soundfont/soundfont2tbl", soundfont2tbl_ROM_START);
-}
-
-void GameEngine::AudioInit() {
-    LoadSoundfonts();
+    port_alBnkfFreeAll();
 }
 
 // Frame pacing and rendering
