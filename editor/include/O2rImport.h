@@ -146,6 +146,19 @@ uint32_t ActorModelAsset(uint32_t actorId);
 const char* ActorEnumName(uint32_t actorId);
 
 void SetActorOverridesEnabled(bool on);
+
+bool StartAudioEngine();
+void PumpAudioEngine();
+bool AudioEngineRunning();
+void PlayMusicTrack(int trackId);
+void StopMusic();
+void ReleaseMusicTracks();
+int LevelMusicTrack(uint16_t mapId);
+void StartLevelMusic(uint16_t mapId);
+void SetAudioListener(const float pos[3], uint16_t mapId, BKModelBin* opaque, BKModelBin* translucent);
+int MusicChannelMask();
+int MusicListenerMap();
+bool MusicSlotIdle();
 uint32_t ActorDisplayAsset(uint32_t actorId);
 uint32_t ActorExtraModel(uint32_t actorId);
 const char* EditorStandInModel(uint8_t category, uint32_t id);

@@ -7,6 +7,7 @@
 #include "port/Resource/Importers/AnimFactory.h"
 #include "port/Resource/Importers/MapFactory.h"
 #include "port/Resource/Importers/ModelFactory.h"
+#include "port/Resource/Importers/MusicFactory.h"
 #include "port/Resource/Importers/SoundFactory.h"
 #include "port/Resource/Importers/SpriteFactory.h"
 #include <algorithm>
@@ -60,6 +61,8 @@ void RegisterBKFactories() {
                                     RESOURCE_FORMAT_BINARY, "BKSound", Factories::kBKSoundResourceType, 0);
     loader->RegisterResourceFactory(std::make_shared<Factories::ResourceFactoryBinaryBKSoundBankV0>(),
                                     RESOURCE_FORMAT_BINARY, "BKSoundBank", Factories::kBKSoundBankResourceType, 0);
+    loader->RegisterResourceFactory(std::make_shared<Factories::ResourceFactoryBinaryBKMusicV0>(),
+                                    RESOURCE_FORMAT_BINARY, "BKMusic", Factories::kBKMusicResourceType, 0);
 }
 
 namespace {

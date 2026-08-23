@@ -5,199 +5,50 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
-#include "O2rImport.h"
-#include <SDL.h>
-
-#include "imgui.h"
-#include <fast/Fast3dWindow.h>
-#include <libultraship/controller/controldeck/ControlDeck.h>
-#include <libultraship/libultraship.h>
-#include <ship/Context.h>
-#include <ship/config/ConsoleVariable.h>
-#include <ship/resource/ResourceManager.h>
-
 #include "App.h"
+#include "O2rImport.h"
 
-#include <crtdbg.h>
-#include <cstdio>
-#include <cstdlib>
 #include <spdlog/spdlog.h>
-#include <string>
-
-#ifdef _WIN32
-#include <windows.h>
-
-#include <dbghelp.h>
-#ifdef _WIN32
-static int __cdecl crtReportHook(int type, char* msg, int* ret) {
-    if (type != _CRT_ASSERT && type != _CRT_ERROR) {
-        return FALSE;
-    }
-    static thread_local bool inHook = false;
-    if (inHook) {
-        if (ret) {
-            *ret = 0;
-        }
-        return TRUE;
-    }
-    inHook = true;
-
-    SPDLOG_ERROR("CRT assertion: {}", msg ? msg : "(none)");
-    void* frames[48];
-    USHORT frameCount = CaptureStackBackTrace(1, 48, frames, nullptr);
-    HANDLE proc = GetCurrentProcess();
-    SymInitialize(proc, nullptr, TRUE);
-    SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_UNDNAME);
-    char symBuf[sizeof(SYMBOL_INFO) + 256] = {};
-    SYMBOL_INFO* sym = (SYMBOL_INFO*)symBuf;
-    sym->SizeOfStruct = sizeof(SYMBOL_INFO);
-    sym->MaxNameLen = 255;
-    for (USHORT frame = 0; frame < frameCount; ++frame) {
-        DWORD64 disp = 0;
-        DWORD lineDisp = 0;
-        IMAGEHLP_LINE64 line = { sizeof(IMAGEHLP_LINE64) };
-        const DWORD64 addr = (DWORD64)frames[frame];
-        if (SymFromAddr(proc, addr, &disp, sym)) {
-            if (SymGetLineFromAddr64(proc, addr, &lineDisp, &line)) {
-                SPDLOG_ERROR("    {} ({}:{})", sym->Name, line.FileName, line.LineNumber);
-            } else {
-                SPDLOG_ERROR("    {}", sym->Name);
-            }
-        } else {
-            SPDLOG_ERROR("    0x{:016X}", addr);
-        }
-    }
-
-    inHook = false;
-    if (ret) {
-        *ret = 0;
-    }
-    return TRUE;
-}
-#endif
-
-static LONG WINAPI crashFilter(EXCEPTION_POINTERS* info) {
-    SPDLOG_CRITICAL("=== CRASH: exception 0x{:08X} at {} ===", (uint32_t)info->ExceptionRecord->ExceptionCode,
-                    (const void*)info->ExceptionRecord->ExceptionAddress);
-    HANDLE proc = GetCurrentProcess();
-    SymInitialize(proc, nullptr, TRUE);
-    SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_UNDNAME);
-    CONTEXT ctx = *info->ContextRecord;
-    STACKFRAME64 stackFrame = {};
-    stackFrame.AddrPC.Offset = ctx.Rip;
-    stackFrame.AddrPC.Mode = AddrModeFlat;
-    stackFrame.AddrFrame.Offset = ctx.Rbp;
-    stackFrame.AddrFrame.Mode = AddrModeFlat;
-    stackFrame.AddrStack.Offset = ctx.Rsp;
-    stackFrame.AddrStack.Mode = AddrModeFlat;
-    char symBuf[sizeof(SYMBOL_INFO) + 256] = {};
-    SYMBOL_INFO* sym = (SYMBOL_INFO*)symBuf;
-    sym->SizeOfStruct = sizeof(SYMBOL_INFO);
-    sym->MaxNameLen = 255;
-    for (int frame = 0; frame < 40; ++frame) {
-        if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, proc, GetCurrentThread(), &stackFrame, &ctx, nullptr,
-                         SymFunctionTableAccess64, SymGetModuleBase64, nullptr) ||
-            stackFrame.AddrPC.Offset == 0) {
-            break;
-        }
-        DWORD64 disp = 0;
-        DWORD lineDisp = 0;
-        IMAGEHLP_LINE64 line = { sizeof(IMAGEHLP_LINE64) };
-        if (SymFromAddr(proc, stackFrame.AddrPC.Offset, &disp, sym)) {
-            if (SymGetLineFromAddr64(proc, stackFrame.AddrPC.Offset, &lineDisp, &line)) {
-                SPDLOG_CRITICAL("  #{:02d} {} +0x{:x}  ({}:{})", frame, sym->Name, (unsigned long long)disp,
-                                line.FileName, (unsigned long)line.LineNumber);
-            } else {
-                SPDLOG_CRITICAL("  #{:02d} {} +0x{:x}", frame, sym->Name, (unsigned long long)disp);
-            }
-        } else {
-            SPDLOG_CRITICAL("  #{:02d} 0x{:x}", frame, (unsigned long long)stackFrame.AddrPC.Offset);
-        }
-    }
-    spdlog::default_logger()->flush();
-    return EXCEPTION_EXECUTE_HANDLER;
-}
-#endif
-
-int main(int, char**) {
-#ifdef _WIN32
-    SetUnhandledExceptionFilter(crashFilter);
-    _CrtSetReportHook(crtReportHook);
-#endif
-
-    Ship::Context* ctx = Ship::Context::CreateUninitializedInstance("Lightbulb", "lightbulb", "lightbulb.cfg.json");
-    ctx->InitLogging();
-    ctx->InitConfiguration();
-    ctx->InitConsoleVariables();
-    ctx->GetConsoleVariables()->SetInteger("gEnableMultiViewports", 0);
-    ctx->InitResourceManager({ "lighthouse.o2r" }, {}, 1, true);
-    if (auto resources = ctx->GetResourceManager(); !resources || !resources->IsLoaded()) {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lightbulb", "Couldn't load lighthouse.o2r.", nullptr);
-        std::_Exit(1);
-    }
-    ctx->InitControlDeck(std::make_shared<LUS::ControlDeck>());
-    ctx->InitConsole();
-    Lightbulb::RegisterBKFactories();
-
-    auto window = std::make_shared<Fast::Fast3dWindow>(std::vector<std::shared_ptr<Ship::GuiWindow>>{});
-    ctx->InitWindow(window);
-    ctx->InitEventSystem();
-
-    static char imguiIniPath[512];
-    std::snprintf(imguiIniPath, sizeof(imguiIniPath), "%s",
-                  Ship::Context::GetPathRelativeToAppDirectory("lightbulb.imgui.ini").c_str());
-    ImGui::GetIO().IniFilename = imguiIniPath;
-
-    App app;
-
-    while (window->IsRunning() && !app.ShouldClose()) {
-        window->HandleEvents();
-        if (!window->IsFrameReady()) {
-            continue;
-        }
-        auto gui = window->GetGui();
-        window->GetMouseStateManager()->StartFrame();
-        gui->StartDraw();
-        window->StartFrame();
-        app.DrawFrame();
-        if (!app.RenderLevelGameFrame()) {
-            window->RunGuiOnly();
-        }
-        gui->EndDraw();
-        window->EndFrame();
-        app.EnforceDefaultLayout();
-    }
-
-    ImGui::SaveIniSettingsToDisk(ImGui::GetIO().IniFilename);
-    window->Close();
-    spdlog::shutdown();
-    std::_Exit(0);
-}
 
 #include "port/Enhancements/Events/Hooks/Events.h"
 
 extern "C" {
 #include "core2/animmtxlist.h"
+#include "core2/timedfunc.h"
+#include "port/DevTools/ThreadWatchdog.h"
 #include "core2/modelRender.h"
 #include "functions.h"
 #include "libultraship/libultra/gbi.h"
 #include <libultra/rcp.h>
 #include <ultra64.h>
 
+#define DEFAULT_FRAMEBUFFER_WIDTH 292
+#define DEFAULT_FRAMEBUFFER_HEIGHT 216
+
+// Animation scratch
 static f32 sFrameDelta = 0.0f;
 static AnimMtxList* sEditorBones = NULL;
 static s32 sEditorBonesCap = 0;
+
+// The bounds a setup's cubes are read against
 static s32 sCubeMin[3] = { 0, 0, 0 };
 static s32 sCubeMax[3] = { 0, 0, 0 };
+
+// Where the music thinks the listener is
+static s32 sListenerPos[3] = { 0, 0, 0 };
+static s32 sListenerMap = 0;
+static s32 sListenerUnderwater = 0;
+
+s32 gFramebufferWidth = DEFAULT_FRAMEBUFFER_WIDTH;
+s32 gFramebufferHeight = DEFAULT_FRAMEBUFFER_HEIGHT;
+alignas(0x40) u8 D_8000E800[DEFAULT_FRAMEBUFFER_WIDTH * DEFAULT_FRAMEBUFFER_HEIGHT * sizeof(u16)];
+u16 gFramebuffers[2][DEFAULT_FRAMEBUFFER_WIDTH * DEFAULT_FRAMEBUFFER_HEIGHT];
 
 void BK_LOG_WARN(const char* fmt, ...) {
 }
 void BK_LOG_DEBUG(const char* fmt, ...) {
 }
 int port_audioHeld(void) {
-    return 0;
-}
-int port_audioStallHold(void) {
     return 0;
 }
 void func_8033A5B8(BoneTransformList* self, s32 bone_id, f32 arg2[4], f32 scale[3], f32 arg4[3]) {
@@ -433,8 +284,36 @@ void player_getPosition(f32 dst[3]) {
 enum level_e level_get(void) {
     return (enum level_e)0;
 }
+
+void lh_setAudioListener(const s32 pos[3], s32 mapId) {
+    s32 i;
+    for (i = 0; i < 3; i++) {
+        sListenerPos[i] = pos[i];
+    }
+    sListenerMap = mapId;
+}
+
 enum map_e gsworld_getMap(void) {
-    return (enum map_e)0;
+    return (enum map_e)sListenerMap;
+}
+
+s32 lh_getListenerMap(void) {
+    return sListenerMap;
+}
+
+void lh_setListenerMap(s32 mapId) {
+    sListenerMap = mapId;
+}
+
+void lh_setListenerUnderwater(s32 underwater) {
+    sListenerUnderwater = underwater;
+}
+
+void player_getPosition_s32(s32 dst[3]) {
+    s32 i;
+    for (i = 0; i < 3; i++) {
+        dst[i] = sListenerPos[i];
+    }
 }
 s32 gsworld_getUnk0(void) {
     return 0;
@@ -633,18 +512,6 @@ void port_warnPropNotInCube(s32 index, s32 propCnt) {
 void port_spriteDisplayCache_clear(void) {
 }
 
-#define DEFAULT_FRAMEBUFFER_WIDTH 292
-#define DEFAULT_FRAMEBUFFER_HEIGHT 216
-
-alignas(0x40) u8 D_8000E800[DEFAULT_FRAMEBUFFER_WIDTH * DEFAULT_FRAMEBUFFER_HEIGHT * sizeof(u16)];
-
-u16 gFramebuffers[2][DEFAULT_FRAMEBUFFER_WIDTH * DEFAULT_FRAMEBUFFER_HEIGHT];
-
-OSIntMask osSetIntMask(OSIntMask a) {
-    (void)a;
-    return 0;
-}
-
 void bkmemcpy64(void* dest, void* src, s32 size) {
     memcpy(dest, src, size);
 }
@@ -676,6 +543,125 @@ void drawRectangle2D(Gfx** gfx, s32 x, s32 y, s32 w, s32 h, s32 r, s32 g, s32 b)
     (void)g;
     (void)b;
 }
-s32 gFramebufferWidth = 292;
-s32 gFramebufferHeight = 216;
+
+void core1_15B30_addAudioTaskData(Acmd* start, Acmd* end, OSMesgQueue* replyQueue, OSMesg replyMesg) {
+    (void)start;
+    (void)end;
+    osSendMesg(replyQueue, replyMesg, OS_MESG_NOBLOCK);
+}
+
+int gPortResetPending = 0;
+u8 osTvType = 1;
+
+void ThreadWatchdog_Beat(WatchdogThread id) {
+    (void)id;
+}
+void func_8028F918(s32 arg0) {
+    (void)arg0;
+}
+void func_802BE720(void) {
+}
+void func_802D6114(void) {
+}
+void func_8030E760(enum sfx_e uid, f32 arg1, s32 arg2) {
+    (void)uid;
+    (void)arg1;
+    (void)arg2;
+}
+void func_8030E9C4(enum sfx_e uid, f32 arg1, u32 arg2, f32 arg3[3], f32 arg4, f32 arg5) {
+    (void)uid;
+    (void)arg1;
+    (void)arg2;
+    (void)arg3;
+    (void)arg4;
+    (void)arg5;
+}
+bool gcdialog_showDialog(s32 text_id, s32 arg1, f32* pos, ActorMarker* marker,
+                         void (*callback)(ActorMarker*, enum asset_e, s32),
+                         void (*arg5)(ActorMarker*, enum asset_e, s32)) {
+    (void)text_id;
+    (void)arg1;
+    (void)pos;
+    (void)marker;
+    (void)callback;
+    (void)arg5;
+    return FALSE;
+}
+void jiggy_spawn(enum jiggy_e jiggy_id, f32 pos[3]) {
+    (void)jiggy_id;
+    (void)pos;
+}
+void ncStaticCamera_exit(void) {
+}
+void ncStaticCamera_setToNode(s32 node) {
+    (void)node;
+}
+void assetcache_func_8033B788(void) {
+}
+void func_80247F9C(s32 arg0) {
+    (void)arg0;
+}
+void gcdebugText_showLargeValue(s32 arg0, s32 arg1) {
+    (void)arg0;
+    (void)arg1;
+}
+void gcdebugText_pauseThread(void) {
+}
+bool sns_get_item_state(enum StopNSwop_Item item, s32 set) {
+    (void)item;
+    (void)set;
+    return FALSE;
+}
+int port_getRomhackMusic(int map_id, int* out_track1, int* out_track2) {
+    (void)map_id;
+    (void)out_track1;
+    (void)out_track2;
+    return 0;
+}
+// Not a variant selector like the jiggy and flag stubs below: Spiral Mountain gates its
+// whole near-the-lair crossfade on this, so a fresh-save answer would mean the music never
+// changes there. The editor shows the game taught.
+int chmole_learnedAllSpiralMountainAbilities(void) {
+    return 1;
+}
+int func_802D686C(void) {
+    return 0;
+}
+void func_802F9FD0(s32 arg0, f32 arg1, f32 arg2, f32 arg3) {
+    (void)arg0;
+    (void)arg1;
+    (void)arg2;
+    (void)arg3;
+}
+bool func_80309D58(f32 arg0[3], s32 arg1) {
+    (void)arg0;
+    (void)arg1;
+    return FALSE;
+}
+s32 gameSelect_getGameNumber(void) {
+    return 0;
+}
+int gctransition_8030BDC0(void) {
+    return 0;
+}
+s32 getGameMode(void) {
+    return 0;
+}
+u32 jiggyscore_isCollected(enum jiggy_e jiggy_id) {
+    (void)jiggy_id;
+    return 0;
+}
+s32 levelSpecificFlags_get(s32 i) {
+    (void)i;
+    return 0;
+}
+bool player_isDead(void) {
+    return FALSE;
+}
+enum bswatergroup_e player_getWaterState(void) {
+    return sListenerUnderwater ? BSWATERGROUP_2_UNDERWATER : BSWATERGROUP_0_NONE;
+}
+bool player_is_present(void) {
+    return FALSE;
+}
 }

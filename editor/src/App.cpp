@@ -22,6 +22,7 @@ namespace {
 constexpr const char* kLastO2rPath = "gLightbulb.LastO2rPath";
 constexpr const char* kCameraSpeed = "gLightbulb.CameraSpeed";
 constexpr const char* kActorOverrides = "gLightbulb.ActorOverrides";
+constexpr const char* kAutoPlayLevelMusic = "gLightbulb.AutoPlayLevelMusic";
 constexpr const char* kLayers = "gLightbulb.Layers";
 constexpr const char* kAnimateObjects = "gLightbulb.AnimateObjects";
 } // namespace
@@ -87,6 +88,7 @@ bool App::OpenO2rPath(const std::string& path) {
     mConfig.lastO2rPath = path;
     SaveSettings();
     mStatus = "Loaded " + path;
+    Lightbulb::StartAudioEngine();
     return true;
 }
 
@@ -102,11 +104,15 @@ bool App::OpenRomhackPath(const std::string& path) {
         return false;
     }
     mRomhackPath = path;
+    Lightbulb::ReleaseMusicTracks();
+    mMusicView.paths.clear();
+    mMusicView.playing = -1;
     mStatus = "Loaded romhack " + path;
     return true;
 }
 
 void App::DrawFrame() {
+    Lightbulb::PumpAudioEngine();
     DrawMenuBar();
     DrawToolbar();
     DrawLevelsPanel();
@@ -115,6 +121,7 @@ void App::DrawFrame() {
     DrawModelViewer();
     DrawSpriteViewer();
     DrawSoundViewer();
+    DrawMusicViewer();
     DrawReloadOffer();
     DrawPreferences();
     DrawCredits();
@@ -190,6 +197,7 @@ void App::DrawMenuBar() {
         ImGui::MenuItem("Models...", nullptr, &mShowModels, mO2rLoaded);
         ImGui::MenuItem("Sprites...", nullptr, &mShowSprites, mO2rLoaded);
         ImGui::MenuItem("Sounds...", nullptr, &mShowSounds, mO2rLoaded);
+        ImGui::MenuItem("Music...", nullptr, &mShowMusic, mO2rLoaded);
         ImGui::Separator();
         ImGui::MenuItem("Preferences...", nullptr, &mShowPreferences);
         ImGui::EndMenu();
@@ -223,6 +231,7 @@ bool LoadConfig(Config& out) {
     out.lastO2rPath = cvars->GetString(kLastO2rPath, "");
     out.cameraSpeed = cvars->GetFloat(kCameraSpeed, out.cameraSpeed);
     out.actorOverrides = cvars->GetInteger(kActorOverrides, out.actorOverrides ? 1 : 0) != 0;
+    out.autoPlayLevelMusic = cvars->GetInteger(kAutoPlayLevelMusic, out.autoPlayLevelMusic ? 1 : 0) != 0;
     out.layers = (uint32_t)cvars->GetInteger(kLayers, (int32_t)out.layers);
     out.animateObjects = cvars->GetInteger(kAnimateObjects, out.animateObjects ? 1 : 0) != 0;
     return true;
@@ -236,6 +245,7 @@ bool SaveConfig(const Config& cfg) {
     cvars->SetString(kLastO2rPath, cfg.lastO2rPath.c_str());
     cvars->SetFloat(kCameraSpeed, cfg.cameraSpeed);
     cvars->SetInteger(kActorOverrides, cfg.actorOverrides ? 1 : 0);
+    cvars->SetInteger(kAutoPlayLevelMusic, cfg.autoPlayLevelMusic ? 1 : 0);
     cvars->SetInteger(kLayers, (int32_t)cfg.layers);
     cvars->SetInteger(kAnimateObjects, cfg.animateObjects ? 1 : 0);
     cvars->Save();

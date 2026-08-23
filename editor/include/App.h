@@ -30,6 +30,7 @@ struct Config {
     std::string lastO2rPath;
     float cameraSpeed = 40.0f;
     bool actorOverrides = true;
+    bool autoPlayLevelMusic = false;
     bool animateObjects = true;
     uint32_t layers = 0xFFFFFFFFu & ~kLayerUnregistered;
 };
@@ -70,6 +71,8 @@ private:
     void DrawModelViewer();
     void DrawSpriteViewer();
     void DrawSoundViewer();
+    void DrawMusicViewer();
+    void ResumeLevelMusic();
     void DrawReloadOffer();
     void DrawPreferences();
     void DrawCredits();
@@ -98,6 +101,8 @@ private:
     bool mShowModels = false;
     bool mShowSprites = false;
     bool mShowSounds = false;
+    bool mShowMusic = false;
+    bool mMusicPanelOpen = false;
     bool mShowPreferences = false;
     bool mShowCredits = false;
 
@@ -154,6 +159,16 @@ private:
         bool curOk = false;
     };
     SoundView mSoundView;
+
+    struct MusicView {
+        std::vector<std::string> paths;
+        int sel = -1;
+        char filter[64] = { 0 };
+        float listW = 260.0f;
+        bool autoPlay = true;
+        int playing = -1;
+    };
+    MusicView mMusicView;
 
     struct LevelEntry {
         std::string name;

@@ -20,7 +20,20 @@ file(GLOB_RECURSE ED_APP_SOURCES CONFIGURE_DEPENDS
     "${ED}/src/importer/*.cpp"
 )
 
+file(GLOB ED_N_AUDIO_SOURCES CONFIGURE_DEPENDS "${LH}/src/core1/n_audio/*.c")
+file(GLOB ED_ULTRA_AUDIO_SOURCES CONFIGURE_DEPENDS "${LH}/lib/ultralib/audio/*.c")
+
 set(ED_DECOMP_SOURCES
+    ${ED_N_AUDIO_SOURCES}
+    ${ED_ULTRA_AUDIO_SOURCES}
+    ${LH}/src/core1/audio_manager.c
+    ${LH}/src/core1/audio_instruments.c
+    ${LH}/src/core1/audio_soundplayer.c
+    ${LH}/src/core1/musicplayer.c
+    ${LH}/src/core1/audio_ambience.c
+    ${LH}/src/core2/sfx/instruments.c
+    ${LH}/src/core2/timedfuncqueue.c
+    ${LH}/src/core2/sfx/trackmanager.c
     ${LH}/src/core1/gu_matrix.c
     ${LH}/src/core1/gu_perspective.c
     ${LH}/src/core1/viewport.c
@@ -69,13 +82,16 @@ set(ED_DECOMP_SOURCES
 )
 
 set(ED_SHARED_PORT_SOURCES
+    ${LH}/src/port/Audio/mixer.c
+    ${LH}/src/port/Audio/AudioInterface.c
+    ${LH}/src/port/Audio/AudioSync.cpp
+    ${LH}/src/port/Audio/AudioSoundFont.cpp
     ${LH}/src/port/Resource/Importers/ModelFactory.cpp
     ${LH}/src/port/Resource/Importers/SpriteFactory.cpp
     ${LH}/src/port/Resource/Importers/SoundFactory.cpp
     ${LH}/src/port/Resource/Importers/MusicFactory.cpp
     ${LH}/src/port/FilePicker.cpp
     ${LH}/src/port/Resource/Importers/AnimFactory.cpp
-    ${LH}/src/port/Resource/Importers/MapFactory.cpp
     ${LH}/src/port/Resource/Importers/MapFactory.cpp
     ${LH}/src/port/Resource/Type/Sprite.cpp
     ${LH}/src/port/ResourceHelpers.cpp
@@ -106,11 +122,13 @@ set_source_files_properties(${ED_DECOMP_SOURCES} PROPERTIES
 
 set(ED_MODELH_SOURCES
     ${ED}/src/ModelViewer.cpp
+    ${ED}/src/LevelScene.cpp
     ${ED}/src/Panels.cpp
     ${ED}/src/SpriteViewer.cpp
     ${ED}/src/ActorOverrides.cpp
     ${ED}/src/PreviewScene.cpp
-    ${ED}/src/Engine.cpp
+    ${ED}/src/DecompShims.cpp
+    ${ED}/src/Main.cpp
     ${ED}/src/importer/Archive.cpp
     ${ED}/src/importer/Models.cpp
     ${ED}/src/importer/Setup.cpp

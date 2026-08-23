@@ -104,6 +104,16 @@ void App::DrawPreferences() {
         ImGui::SetTooltip("Animate collectibles in the editor.");
     }
 
+    if (ImGui::Checkbox("Play the level's music", &mConfig.autoPlayLevelMusic)) {
+        if (!mConfig.autoPlayLevelMusic) {
+            Lightbulb::StopMusic();
+        }
+        SaveSettings();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Start a level's own track when you select it. Music > for the rest.");
+    }
+
     ImGui::SeparatorText("Renderer");
     auto backendName = [](int backendId) -> const char* {
         switch (backendId) {
