@@ -2,6 +2,8 @@
 
 #include "O2rImport.h"
 
+#include "ship/window/gui/FileBrowserWindow.h"
+
 #include <cstdint>
 #include <map>
 #include <string>
@@ -32,8 +34,9 @@ struct Config {
 };
 bool LoadConfig(Config& out);
 bool SaveConfig(const Config& cfg);
-
-bool OpenFileDialog(const char* title, const char* filter, std::string& outPath);
+bool OpenFileDialog(const char* title, const std::vector<Ship::FileFilter>& filters, std::string& outPath);
+bool SaveFileDialog(const char* title, const std::vector<Ship::FileFilter>& filters, const std::string& defaultName,
+                    std::string& outPath);
 } // namespace Lightbulb
 
 class App {

@@ -1,4 +1,6 @@
 #include "App.h"
+
+#include "port/FilePicker.h"
 #include "O2rImport.h"
 #include <windows.h>
 
@@ -45,8 +47,7 @@ void App::SaveSettings() {
 
 void App::OpenO2r() {
     std::string path;
-    if (!Lightbulb::OpenFileDialog("Open Banjo-Kazooie o2r", "Banjo-Kazooie o2r (*.o2r)\0*.o2r\0All files (*.*)\0*.*\0",
-                                   path)) {
+    if (!Lightbulb::OpenFileDialog("Open Banjo-Kazooie o2r", { { "Banjo-Kazooie o2r", { "*.o2r" } } }, path)) {
         return;
     }
     OpenO2rPath(path);
@@ -54,7 +55,7 @@ void App::OpenO2r() {
 
 void App::OpenRomhackO2r() {
     std::string path;
-    if (!Lightbulb::OpenFileDialog("Open romhack o2r", "Romhack o2r (*.o2r)\0*.o2r\0All files (*.*)\0*.*\0", path)) {
+    if (!Lightbulb::OpenFileDialog("Open romhack o2r", { { "Romhack o2r", { "*.o2r" } } }, path)) {
         return;
     }
     OpenRomhackPath(path);
@@ -237,41 +238,36 @@ bool SaveConfig(const Config& cfg) {
 
 } // namespace Lightbulb
 
-#if defined(_WIN32)
-
 namespace Lightbulb {
 namespace {
-bool runFileDialog(const char* title, const char* filter, std::string& outPath) {
-    char buffer[MAX_PATH] = { 0 };
-    OPENFILENAMEA ofn{};
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = GetActiveWindow();
-    ofn.lpstrFilter = filter;
-    ofn.lpstrFile = buffer;
-    ofn.nMaxFile = sizeof(buffer);
-    ofn.lpstrTitle = title;
-    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
-    if (GetOpenFileNameA(&ofn)) {
-        outPath = buffer;
-        return true;
-    }
-    return false;
+
+bool RunPicker(Ship::FileBrowserRequest request, std::string& outPath) {
+    bool picked = false;
+    Lighthouse::PickFile(std::move(request), [&](std::optional<std::filesystem::path> chosen) {
+        if (chosen.has_value()) {
+            outPath = chosen->string();
+            picked = true;
+        }
+    });
+    return picked;
 }
 } // namespace
 
-bool OpenFileDialog(const char* title, const char* filter, std::string& outPath) {
-    return runFileDialog(title, filter, outPath);
+bool OpenFileDialog(const char* title, const std::vector<Ship::FileFilter>& filters, std::string& outPath) {
+    Ship::FileBrowserRequest request;
+    request.Title = title;
+    request.Filters = filters;
+    return RunPicker(std::move(request), outPath);
+}
+
+bool SaveFileDialog(const char* title, const std::vector<Ship::FileFilter>& filters, const std::string& defaultName,
+                    std::string& outPath) {
+    Ship::FileBrowserRequest request;
+    request.Title = title;
+    request.Filters = filters;
+    request.Save = true;
+    request.DefaultName = defaultName;
+    return RunPicker(std::move(request), outPath);
 }
 
 } // namespace Lightbulb
-
-#else
-
-namespace Lightbulb {
-bool OpenFileDialog(const char*, const char*, std::string&) {
-    return false;
-}
-
-} // namespace Lightbulb
-
-#endif
