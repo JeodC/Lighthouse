@@ -7,6 +7,7 @@
 #include "port/Resource/Importers/AnimFactory.h"
 #include "port/Resource/Importers/MapFactory.h"
 #include "port/Resource/Importers/ModelFactory.h"
+#include "port/Resource/Importers/SoundFactory.h"
 #include "port/Resource/Importers/SpriteFactory.h"
 #include <algorithm>
 #include <fast/resource/ResourceType.h>
@@ -55,6 +56,10 @@ void RegisterBKFactories() {
                                     static_cast<uint32_t>(Fast::ResourceType::DisplayList), 0);
     loader->RegisterResourceFactory(std::make_shared<Ship::ResourceFactoryBinaryBlobV0>(), RESOURCE_FORMAT_BINARY,
                                     "Blob", static_cast<uint32_t>(Ship::ResourceType::Blob), 0);
+    loader->RegisterResourceFactory(std::make_shared<Factories::ResourceFactoryBinaryBKSoundV0>(),
+                                    RESOURCE_FORMAT_BINARY, "BKSound", Factories::kBKSoundResourceType, 0);
+    loader->RegisterResourceFactory(std::make_shared<Factories::ResourceFactoryBinaryBKSoundBankV0>(),
+                                    RESOURCE_FORMAT_BINARY, "BKSoundBank", Factories::kBKSoundBankResourceType, 0);
 }
 
 namespace {
@@ -85,6 +90,7 @@ void dropCaches() {
     ResetModelCache();
     ResetSpriteCache();
     ResetAnimCache();
+    ResetSoundCache();
     ResetMapXforms();
     ResourceHelpers_ClearRefCache();
     if (auto resources = Ship::Context::GetRawInstance()->GetResourceManager()) {

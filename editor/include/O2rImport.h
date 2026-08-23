@@ -170,3 +170,62 @@ struct SkyLayerInfo {
 };
 int SkyLayersForMap(uint16_t mapId, SkyLayerInfo out[3]);
 } // namespace Lightbulb
+
+namespace Lightbulb {
+struct O2rSound {
+    std::string path;
+    uint8_t samplePan = 0;
+    uint8_t sampleVolume = 0;
+    uint8_t flags = 0;
+    bool hasEnvelope = false;
+    int32_t attackTime = 0;
+    int32_t decayTime = 0;
+    int32_t releaseTime = 0;
+    uint8_t attackVolume = 0;
+    uint8_t decayVolume = 0;
+    bool hasKeyMap = false;
+    uint8_t velocityMin = 0;
+    uint8_t velocityMax = 0;
+    uint8_t keyMin = 0;
+    uint8_t keyMax = 0;
+    uint8_t keyBase = 60;
+    int8_t detune = 0;
+    bool hasWave = false;
+    uint8_t waveType = 0;
+    uint8_t waveFlags = 0;
+    bool hasLoop = false;
+    uint32_t loopStart = 0;
+    uint32_t loopEnd = 0;
+    uint32_t loopCount = 0;
+    bool hasBook = false;
+    int32_t bookOrder = 0;
+    int32_t bookNpredictors = 0;
+    uint32_t encodedBytes = 0;
+    std::vector<int16_t> pcm;
+    uint32_t userCount = 0;
+};
+
+constexpr int kSoundBankRate = 22050;
+
+std::vector<std::string> ListO2rSoundPaths(const std::string& dir);
+bool LoadO2rSound(const std::string& path, O2rSound& out);
+void ResetSoundCache();
+
+inline int SoundChainTarget(const O2rSound& s) {
+    const int next = s.velocityMin + ((s.keyMin & 0xC0) * 4);
+    return next ? next - 1 : -1;
+}
+inline int SoundChainDelayFrames(const O2rSound& s) {
+    return s.velocityMax;
+}
+inline int SoundVolumeGroup(const O2rSound& s) {
+    return s.keyMin & 0x3F;
+}
+inline int SoundReverbSend(const O2rSound& s) {
+    return s.keyMax & 0x0F;
+}
+inline bool SoundIsPositional(const O2rSound& s) {
+    return s.hasEnvelope && s.decayTime == -1;
+}
+float SoundPitchRatio(const O2rSound& s);
+} // namespace Lightbulb

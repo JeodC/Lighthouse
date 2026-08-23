@@ -68,6 +68,7 @@ private:
     void DrawStatusBar();
     void DrawModelViewer();
     void DrawSpriteViewer();
+    void DrawSoundViewer();
     void DrawReloadOffer();
     void DrawPreferences();
     void DrawCredits();
@@ -95,6 +96,7 @@ private:
 
     bool mShowModels = false;
     bool mShowSprites = false;
+    bool mShowSounds = false;
     bool mShowPreferences = false;
     bool mShowCredits = false;
 
@@ -135,6 +137,22 @@ private:
         int chunkKey = -1;
     };
     SpriteView mSpriteView;
+
+    struct SoundView {
+        std::vector<std::string> paths;
+        int sel = -1;
+        char filter[64] = { 0 };
+        float listW = 280.0f;
+        bool showInstruments = false;
+        bool pitched = true;
+        bool autoPlay = true;
+        std::string lastExport;
+        bool lastExportOk = false;
+        Lightbulb::O2rSound cur;
+        int curSel = -2;
+        bool curOk = false;
+    };
+    SoundView mSoundView;
 
     struct LevelEntry {
         std::string name;

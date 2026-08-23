@@ -64,6 +64,7 @@ void App::OpenRomhackO2r() {
 void App::ResetLoadedScene() {
     mObjView = O2rView{};
     mSpriteView = SpriteView{};
+    mSoundView = SoundView{};
     mLevelScene = LevelScene{};
     mSetup = Lightbulb::SetupScene{};
     mPropSel = -1;
@@ -112,6 +113,7 @@ void App::DrawFrame() {
     DrawPropertiesPanel();
     DrawModelViewer();
     DrawSpriteViewer();
+    DrawSoundViewer();
     DrawReloadOffer();
     DrawPreferences();
     DrawCredits();
@@ -186,6 +188,7 @@ void App::DrawMenuBar() {
     if (ImGui::BeginMenu("Tools")) {
         ImGui::MenuItem("Models...", nullptr, &mShowModels, mO2rLoaded);
         ImGui::MenuItem("Sprites...", nullptr, &mShowSprites, mO2rLoaded);
+        ImGui::MenuItem("Sounds...", nullptr, &mShowSounds, mO2rLoaded);
         ImGui::Separator();
         ImGui::MenuItem("Preferences...", nullptr, &mShowPreferences);
         ImGui::EndMenu();
