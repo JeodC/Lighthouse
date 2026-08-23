@@ -166,6 +166,7 @@ private:
         float eye[3] = { 0.0f, 0.0f, 0.0f };
         float yaw = 0.0f, pitch = 0.0f;
         bool framed = false;
+        bool looking = false;
     };
     LevelScene mLevelScene;
     Lightbulb::SetupScene mSetup;

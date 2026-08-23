@@ -209,9 +209,17 @@ void App::DrawLevelsPanel() {
     if (scene.sel >= 0 && scene.framed) {
         ImGuiIO& io = ImGui::GetIO();
         float viewX, viewY, viewW, viewH;
+        const ImGuiWindow* gameWindow = ImGui::FindWindowByName("Main Game");
         const bool overView =
             Lightbulb::GetGameViewportRect(viewX, viewY, viewW, viewH) &&
-            ImGui::IsMouseHoveringRect(ImVec2(viewX, viewY), ImVec2(viewX + viewW, viewY + viewH), false);
+            ImGui::IsMouseHoveringRect(ImVec2(viewX, viewY), ImVec2(viewX + viewW, viewY + viewH), false) &&
+            gameWindow != nullptr && ImGui::GetCurrentContext()->HoveredWindow == gameWindow;
+        if (overView && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            scene.looking = true;
+        }
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            scene.looking = false;
+        }
         if (overView && ImGui::IsMouseReleased(ImGuiMouseButton_Right) &&
             !ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
             const float cosPitch = std::cos(scene.pitch * kDeg);
@@ -256,7 +264,7 @@ void App::DrawLevelsPanel() {
             }
             mPropSel = best;
         }
-        if (overView && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+        if (scene.looking && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
             scene.yaw += io.MouseDelta.x * 0.25f;
             scene.pitch -= io.MouseDelta.y * 0.25f;
             scene.pitch = scene.pitch > 89.0f ? 89.0f : (scene.pitch < -89.0f ? -89.0f : scene.pitch);
