@@ -47,7 +47,7 @@ void App::DrawMusicViewer() {
     if (mShowMusic != mMusicPanelOpen) {
         mMusicPanelOpen = mShowMusic;
         if (mShowMusic) {
-            Lightbulb::StopMusic();
+            Lightbulb::StopLevelMusic();
             mMusicView.playing = -1;
         } else {
             Lightbulb::StopMusic();

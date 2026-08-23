@@ -155,6 +155,7 @@ void StopMusic();
 void ReleaseMusicTracks();
 int LevelMusicTrack(uint16_t mapId);
 void StartLevelMusic(uint16_t mapId);
+void StopLevelMusic();
 void SetAudioListener(const float pos[3], uint16_t mapId, BKModelBin* opaque, BKModelBin* translucent);
 int MusicChannelMask();
 int MusicListenerMap();

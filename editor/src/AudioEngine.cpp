@@ -146,6 +146,14 @@ bool MusicSlotIdle() {
     return !sStarted || musicSlot_hasStopped(0);
 }
 
+void StopLevelMusic() {
+    if (!sStarted) {
+        return;
+    }
+    core1_ce60_func_8024BD40(2, 1);
+    func_8025A9D4();
+}
+
 void StartLevelMusic(uint16_t mapId) {
     if (!sStarted) {
         return;

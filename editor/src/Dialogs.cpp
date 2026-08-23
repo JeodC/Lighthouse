@@ -106,7 +106,7 @@ void App::DrawPreferences() {
 
     if (ImGui::Checkbox("Play the level's music", &mConfig.autoPlayLevelMusic)) {
         if (!mConfig.autoPlayLevelMusic) {
-            Lightbulb::StopMusic();
+            Lightbulb::StopLevelMusic();
         }
         SaveSettings();
     }
