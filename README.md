@@ -94,6 +94,7 @@ Step-by-step guides for each kind of mod live in [`docs/modding/`](docs/modding/
 * [**Custom animations**](docs/modding/CUSTOM%20ANIMATIONS.md) - edit the game's animations as YAML through Torch's modding mode
 * [**Custom dialog**](docs/modding/CUSTOM%20DIALOG.md) - dialog box codes: portraits, choices, substitution, and gameplay triggers
 * [**Custom models**](docs/modding/CUSTOM%20MODELS.md) - the model format, and how the boot-sequence mascot was made
+* [**Custom audio**](docs/modding/CUSTOM%20AUDIO.md) - replace a sound effect with your own audio, or a music track with your own MIDI
 * [**Language packs**](docs/modding/LANGUAGE%20PACKS.md) - add a new in-game language
 
 # Development
