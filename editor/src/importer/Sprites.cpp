@@ -275,4 +275,24 @@ SpriteFrame SpriteFrameAt(const O2rSpriteTex& sprite, double seconds, int phase)
     return { step, flip != 0 };
 }
 
+int SpriteRestFrame(const O2rSpriteTex& sprite) {
+    int best = 0;
+    int bestArea = -1;
+    for (int frame = 0; frame < (int)sprite.frames.size(); ++frame) {
+        const O2rSpriteFrame& candidate = sprite.frames[frame];
+        int area = 0;
+        for (const O2rSpriteChunk& chunk : candidate.chunks) {
+            area += chunk.width * chunk.height;
+        }
+        if (area == 0) {
+            area = candidate.frameW * candidate.frameH;
+        }
+        if (area > bestArea) {
+            bestArea = area;
+            best = frame;
+        }
+    }
+    return best;
+}
+
 } // namespace Lightbulb

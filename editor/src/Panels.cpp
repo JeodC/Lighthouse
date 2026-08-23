@@ -456,7 +456,10 @@ bool App::RenderLevelGameFrame() {
 
     auto emitSprite = [&](const Lightbulb::O2rSpriteTex& spriteTex, const float pos[3], float scale, int phase,
                           int sel) {
-        const Lightbulb::SpriteFrame anim = Lightbulb::SpriteFrameAt(spriteTex, now, phase);
+        const Lightbulb::SpriteFrame anim = mConfig.animateObjects
+                                                ? Lightbulb::SpriteFrameAt(spriteTex, now, phase)
+                                                : Lightbulb::SpriteFrame{ Lightbulb::SpriteRestFrame(spriteTex),
+                                                                          false };
         Lightbulb::AppendSpriteBillboards(spriteTex, anim.frame, -1, pos, scale, anim.mirror, false, sprs);
 
         static std::vector<Lightbulb::SpriteBillboard> allFrames;
@@ -518,7 +521,7 @@ bool App::RenderLevelGameFrame() {
                     inst.pos[1] = (float)nd.pos[1] + drawYOff;
                     inst.pos[2] = (float)nd.pos[2];
                     inst.scale = scale;
-                    const float spin = Lightbulb::ActorSpinRate(nd.id);
+                    const float spin = mConfig.animateObjects ? Lightbulb::ActorSpinRate(nd.id) : 0.0f;
                     float yawDeg = (float)nd.yawRaw;
                     Lightbulb::ActorPlacement(nd.id, inst.pos, yawDeg, scale);
                     inst.scale = scale;

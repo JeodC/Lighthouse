@@ -23,6 +23,7 @@ constexpr const char* kLastO2rPath = "gLightbulb.LastO2rPath";
 constexpr const char* kCameraSpeed = "gLightbulb.CameraSpeed";
 constexpr const char* kActorOverrides = "gLightbulb.ActorOverrides";
 constexpr const char* kLayers = "gLightbulb.Layers";
+constexpr const char* kAnimateObjects = "gLightbulb.AnimateObjects";
 } // namespace
 
 App::App() {
@@ -223,6 +224,7 @@ bool LoadConfig(Config& out) {
     out.cameraSpeed = cvars->GetFloat(kCameraSpeed, out.cameraSpeed);
     out.actorOverrides = cvars->GetInteger(kActorOverrides, out.actorOverrides ? 1 : 0) != 0;
     out.layers = (uint32_t)cvars->GetInteger(kLayers, (int32_t)out.layers);
+    out.animateObjects = cvars->GetInteger(kAnimateObjects, out.animateObjects ? 1 : 0) != 0;
     return true;
 }
 
@@ -235,6 +237,7 @@ bool SaveConfig(const Config& cfg) {
     cvars->SetFloat(kCameraSpeed, cfg.cameraSpeed);
     cvars->SetInteger(kActorOverrides, cfg.actorOverrides ? 1 : 0);
     cvars->SetInteger(kLayers, (int32_t)cfg.layers);
+    cvars->SetInteger(kAnimateObjects, cfg.animateObjects ? 1 : 0);
     cvars->Save();
     return true;
 }

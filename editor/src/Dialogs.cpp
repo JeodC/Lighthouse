@@ -97,6 +97,12 @@ void App::DrawPreferences() {
         ImGui::SetTooltip("Draw actors the way their spawn code places them, not "
                           "raw node values.");
     }
+    if (ImGui::Checkbox("Animate objects", &mConfig.animateObjects)) {
+        SaveSettings();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Animate collectibles in the editor.");
+    }
 
     ImGui::SeparatorText("Renderer");
     auto backendName = [](int backendId) -> const char* {

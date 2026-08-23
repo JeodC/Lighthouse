@@ -104,6 +104,7 @@ struct SpriteFrame {
     bool mirror = false;
 };
 SpriteFrame SpriteFrameAt(const O2rSpriteTex& sprite, double seconds, int phase);
+int SpriteRestFrame(const O2rSpriteTex& sprite);
 } // namespace Lightbulb
 
 namespace Lightbulb {

@@ -30,6 +30,7 @@ struct Config {
     std::string lastO2rPath;
     float cameraSpeed = 40.0f;
     bool actorOverrides = true;
+    bool animateObjects = true;
     uint32_t layers = 0xFFFFFFFFu & ~kLayerUnregistered;
 };
 bool LoadConfig(Config& out);
