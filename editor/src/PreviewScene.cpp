@@ -25,6 +25,7 @@ extern "C" {
 extern "C" {
 void modelRender_init(void);
 void modelRender_reset(void);
+void modelRender_setEnvColor(s32 r, s32 g, s32 b, s32 a);
 void modelRender_func_8033A25C(int enableFrustumCull);
 void modelRender_setDepthMode(int mode);
 void modelRender_setAnimatedTexturesCacheId(int cacheId);
@@ -833,11 +834,10 @@ private:
             return;
         }
         modelRender_reset();
-        // Game code sets selector visibility per actor each frame, and reset leaves
-        // appendage 2 hidden. Force every variant on so nothing silently vanishes.
         for (int selector = 1; selector < 0x2A; ++selector) {
             modelRender_func_8033A470(selector, 0x7FFFFFFF);
         }
+        modelRender_setEnvColor(0xFF, 0xFF, 0xFF, 0xFF);
         modelRender_setDepthMode(depthMode);
         if (bones && boneCount > 0) {
             lh_setEditorBones(reinterpret_cast<const float*>(bones), boneCount);
@@ -1299,7 +1299,7 @@ private:
         gDPPipeSync(mGfx++);
         gSPSegment(mGfx++, 0x03, (void*)renderModesDepthCompareXlu);
         for (int modelIdx = opaqueCount; modelIdx < count; ++modelIdx) {
-            drawModel(models[modelIdx], MODEL_RENDER_DEPTH_COMPARE, nullptr, nullptr, 1.0f);
+            drawModel(models[modelIdx], MODEL_RENDER_DEPTH_FULL, nullptr, nullptr, 1.0f);
         }
         for (int instIdx = 0; instIdx < instCount && pendingXlu > 0; ++instIdx) {
             const ModelInstance& inst = instances[instIdx];
