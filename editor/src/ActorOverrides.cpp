@@ -81,6 +81,10 @@ const char* EditorStandInModel(uint8_t category, uint32_t id) {
     return nullptr;
 }
 
+bool EditorStandInInsidePole(uint8_t category, uint32_t id) {
+    return category == 6 && (id == 0x26 || id == 0x27 || id == 0x28);
+}
+
 uint32_t ActorDisplayAsset(uint32_t actorId) {
     if (sEnabled) {
         switch (actorId) {

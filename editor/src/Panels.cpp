@@ -589,7 +589,22 @@ bool App::RenderLevelGameFrame() {
                 inst.pos[0] = (float)nd.pos[0];
                 inst.pos[1] = (float)nd.pos[1];
                 inst.pos[2] = (float)nd.pos[2];
-                inst.rotDeg[1] = (float)nd.yawRaw;
+                if (Lightbulb::EditorStandInInsidePole(nd.category, nd.id)) {
+                    inst.rotDeg[1] = std::atan2(scene.eye[0] - inst.pos[0], scene.eye[2] - inst.pos[2]) / kDeg;
+                    float toEye[3] = { scene.eye[0] - inst.pos[0], scene.eye[1] - inst.pos[1],
+                                       scene.eye[2] - inst.pos[2] };
+                    const float dist =
+                        std::sqrt(toEye[0] * toEye[0] + toEye[1] * toEye[1] + toEye[2] * toEye[2]);
+                    if (dist > 1.0f) {
+                        const float clear =
+                            std::min((nd.radius ? (float)nd.radius : 50.0f) + 10.0f, dist * 0.5f);
+                        for (int axis = 0; axis < 3; ++axis) {
+                            inst.pos[axis] += toEye[axis] / dist * clear;
+                        }
+                    }
+                } else {
+                    inst.rotDeg[1] = (float)nd.yawRaw;
+                }
                 insts.push_back(inst);
                 recordPick(pickSel, inst, (int)insts.size() - 1);
                 continue;

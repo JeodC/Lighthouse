@@ -148,6 +148,7 @@ void SetActorOverridesEnabled(bool on);
 uint32_t ActorDisplayAsset(uint32_t actorId);
 uint32_t ActorExtraModel(uint32_t actorId);
 const char* EditorStandInModel(uint8_t category, uint32_t id);
+bool EditorStandInInsidePole(uint8_t category, uint32_t id);
 bool EditorEntryPointId(uint32_t id);
 bool ActorDrawTransform(uint32_t assetId, float& scale, float& yOff);
 float ActorSpinRate(uint32_t actorId);
