@@ -7,6 +7,7 @@ from collections import defaultdict
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'src')
 ENUMS = os.path.join(ROOT, 'include', 'enums.h')
+INS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'BK_InstrumentNames.ins')
 REVISIONS = {
     os.path.join('us', 'rev0'): ((0xD846C0, 0xD954B0), (0xEA3EB0, 0xEADE60)),
     os.path.join('us', 'rev1'): ((0xD87CA0, 0xD98A90), (0xEA7490, 0xEB1440)),
@@ -56,10 +57,25 @@ def sfx_users(enum):
                     users[enum[tok]].add(fn[:-2])
     return {k: sorted(v) for k, v in users.items()}
 
+def instrument_names():
+    text = open(INS, encoding='utf-8', errors='replace').read()
+    out = {}
+    for line in text.splitlines():
+        match = re.match(r'\s*(\d+)\s*=\s*(.+?)\s*$', line)
+        if not match:
+            continue
+        name = match.group(2).split('(')[0]
+        name = re.sub(r'[^A-Za-z0-9]+', '_', name).strip('_').lower()
+        if name:
+            out[int(match.group(1))] = name
+    return out
+
 HEADER = ''':config:
   directory: assets
   sfx_names:
 {names}
+  instrument_names:
+{instruments}
   sfx_users:
 {users}
 '''
@@ -78,6 +94,8 @@ def main():
     enum = sfx_enum()
     names = short_names(enum)
     users = sfx_users(enum)
+    instruments = instrument_names()
+    inst_lines = ['    %d: %s' % (i, n) for i, n in sorted(instruments.items())]
     name_lines, user_lines = [], []
     for bank in (1, 2):
         base, count = SFX_BASE[bank], SFX_COUNT[bank]
@@ -88,7 +106,9 @@ def main():
                 user_lines.append('    0x%03X: %d' % (sfx_id, len(users[sfx_id])))
     written = 0
     for rev, ((ctl1, tbl1), (ctl2, tbl2)) in REVISIONS.items():
-        out = HEADER.format(names='\n'.join(name_lines), users='\n'.join(user_lines))
+        out = HEADER.format(names='\n'.join(name_lines),
+                            instruments='\n'.join(inst_lines),
+                            users='\n'.join(user_lines))
         out += ENTRY.format(key='sfx_bank', ctl=ctl1, size=CTL_SIZE[1], tbl=tbl1,
                             inst_path='sfx', sfx_base=SFX_BASE[1])
         out += ENTRY.format(key='instrument_bank', ctl=ctl2, size=CTL_SIZE[2],
@@ -99,7 +119,8 @@ def main():
         print('wrote', os.path.relpath(path, ROOT))
     referenced = sum(1 for b in (1, 2) for i in range(SFX_COUNT[b]) if SFX_BASE[b] + i in users)
     total = SFX_COUNT[1] + SFX_COUNT[2]
-    print('%d files | %d of %d sounds named in code' % (written, referenced, total))
+    print('%d files | %d of %d sounds named in code | %d instruments named'
+          % (written, referenced, total, len(instruments)))
 
 if __name__ == '__main__':
     sys.exit(main())
