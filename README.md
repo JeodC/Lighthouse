@@ -96,6 +96,7 @@ Step-by-step guides for each kind of mod live in [`docs/modding/`](docs/modding/
 * [**Custom models**](docs/modding/CUSTOM%20MODELS.md) - the model format, and building one in Blender with fast64
 * [**Custom audio**](docs/modding/CUSTOM%20AUDIO.md) - replace a sound effect with your own audio, or a music track with your own MIDI
 * [**Language packs**](docs/modding/LANGUAGE%20PACKS.md) - add a new in-game language
+* [**Level editing**](docs/modding/LEVEL%20EDITING.md) - the map setup files: props, nodes, camera zones, and what Lightbulb shows
 
 # Development
 

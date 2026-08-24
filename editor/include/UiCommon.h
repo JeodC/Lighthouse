@@ -37,9 +37,13 @@ inline bool ContainsNoCase(const char* haystack, const char* needle) {
     return false;
 }
 
-inline void TextDisabledWrapped(const char* text) {
+inline void TextDisabledWrapped(const char* fmt, ...) IM_FMTARGS(1);
+inline void TextDisabledWrapped(const char* fmt, ...) {
     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-    ImGui::TextWrapped("%s", text);
+    va_list args;
+    va_start(args, fmt);
+    ImGui::TextWrappedV(fmt, args);
+    va_end(args);
     ImGui::PopStyleColor();
 }
 

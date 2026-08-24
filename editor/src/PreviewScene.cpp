@@ -1049,8 +1049,7 @@ private:
                 edges[edge][1][axis] = world[kEdges[edge][1]][axis];
             }
         }
-        static const uint8_t kWhite[3] = { 255, 255, 255 };
-        drawWireEdges(edges, 8, kWhite, 2.0f, viewDir);
+        drawWireEdges(edges, 8, gizmo.color, 2.0f, viewDir);
 
         Vtx* verts = allocGizmoVerts(3);
         if (!verts) {

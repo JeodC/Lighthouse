@@ -9,6 +9,8 @@
 #if VERSION == VERSION_USA_1_0
 
 /* .data */
+// Indexed by camera node index to
+// color a camera's trigger cylinder.
 u8 RGB_VALUES[8][3] = {
     {0xFF, 0x00, 0x00}, // Red
     {0x00, 0xFF, 0x00}, // Green

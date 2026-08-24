@@ -73,6 +73,8 @@ private:
     void DrawSoundViewer();
     void DrawMusicViewer();
     void ResumeLevelMusic();
+    void EnsureAssetIndexes();
+    void FrameEyeAtEntry(const Lightbulb::SetupNode& node);
     void DrawReloadOffer();
     void DrawPreferences();
     void DrawCredits();

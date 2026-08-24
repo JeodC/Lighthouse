@@ -16,9 +16,15 @@ extern "C" {
 #include <vector>
 
 namespace {
-using Lightbulb::indexById;
 using Lightbulb::kDeg;
 using Lightbulb::kLevelFovYDeg;
+
+void setRareCameraColor(uint8_t out[3], int cameraIndex) {
+    const uint8_t* color = Lightbulb::kRareCameraColors[cameraIndex & 7];
+    out[0] = color[0];
+    out[1] = color[1];
+    out[2] = color[2];
+}
 } // namespace
 
 bool App::RenderLevelGameFrame() {
@@ -63,11 +69,7 @@ bool App::RenderLevelGameFrame() {
             camera = &mSetup.cameras.front();
         }
         if (entry) {
-            scene.eye[0] = (float)entry->pos[0];
-            scene.eye[1] = (float)entry->pos[1] + 50.0f;
-            scene.eye[2] = (float)entry->pos[2] + 500.0f;
-            scene.yaw = 0.0f;
-            scene.pitch = 0.0f;
+            FrameEyeAtEntry(*entry);
         } else if (camera) {
             scene.eye[0] = camera->pos[0];
             scene.eye[1] = camera->pos[1];
@@ -98,10 +100,7 @@ bool App::RenderLevelGameFrame() {
         scene.framed = true;
     }
 
-    if (mModelIndex.empty()) {
-        mModelIndex = indexById(Lightbulb::ListO2rModelPaths("assets/model"));
-        mSpriteIndex = indexById(Lightbulb::ListO2rSpritePaths());
-    }
+    EnsureAssetIndexes();
     std::vector<Lightbulb::ModelInstance> insts;
     insts.reserve(mSetup.props.size());
     std::vector<Lightbulb::GizmoInstance> gizmos;
@@ -339,9 +338,7 @@ bool App::RenderLevelGameFrame() {
         giz.pos[1] = (float)nd.pos[1];
         giz.pos[2] = (float)nd.pos[2];
         if (nd.category == 9) {
-            giz.color[0] = 0;
-            giz.color[1] = 0;
-            giz.color[2] = 255;
+            setRareCameraColor(giz.color, nd.id);
         } else {
             giz.color[0] = giz.color[1] = giz.color[2] = 230;
         }
@@ -355,6 +352,7 @@ bool App::RenderLevelGameFrame() {
         }
         Lightbulb::GizmoInstance giz;
         giz.kind = Lightbulb::GIZMO_CAMERA;
+        setRareCameraColor(giz.color, cam.index);
         giz.pos[0] = cam.pos[0];
         giz.pos[1] = cam.pos[1];
         giz.pos[2] = cam.pos[2];
@@ -396,9 +394,7 @@ bool App::RenderLevelGameFrame() {
                 giz.color[2] = 0;
                 break;
             case 9:
-                giz.color[0] = 0;
-                giz.color[1] = 0;
-                giz.color[2] = 255;
+                setRareCameraColor(giz.color, nd.id);
                 break;
             case 10:
                 giz.color[0] = 0;

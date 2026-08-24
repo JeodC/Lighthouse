@@ -69,6 +69,21 @@ std::string assetFullName(const std::map<uint32_t, std::string>& index, uint32_t
     return slash == std::string::npos ? found->second : found->second.substr(slash + 1);
 }
 
+const char* camTypeName(uint8_t type) {
+    static const char* kNames[] = { "?", "Pivot", "Static", "Zoom", "Random" };
+    return type < 5 ? kNames[type] : "?";
+}
+
+void lookVectors(float yawDeg, float pitchDeg, float outForward[3], float outRight[3]) {
+    const float cosPitch = std::cos(pitchDeg * kDeg);
+    outForward[0] = cosPitch * std::sin(yawDeg * kDeg);
+    outForward[1] = std::sin(pitchDeg * kDeg);
+    outForward[2] = -cosPitch * std::cos(yawDeg * kDeg);
+    outRight[0] = std::cos(yawDeg * kDeg);
+    outRight[1] = 0.0f;
+    outRight[2] = std::sin(yawDeg * kDeg);
+}
+
 std::string assetShortName(const std::string& path) {
     const size_t slash = path.find_last_of('/');
     std::string base = (slash == std::string::npos) ? path : path.substr(slash + 1);
@@ -86,6 +101,21 @@ std::string assetShortName(const std::string& path) {
 }
 
 } // namespace
+
+void App::EnsureAssetIndexes() {
+    if (mModelIndex.empty()) {
+        mModelIndex = indexById(Lightbulb::ListO2rModelPaths("assets/model"));
+        mSpriteIndex = indexById(Lightbulb::ListO2rSpritePaths());
+    }
+}
+
+void App::FrameEyeAtEntry(const Lightbulb::SetupNode& node) {
+    mLevelScene.eye[0] = (float)node.pos[0];
+    mLevelScene.eye[1] = (float)node.pos[1] + 50.0f;
+    mLevelScene.eye[2] = (float)node.pos[2] + 500.0f;
+    mLevelScene.yaw = 0.0f;
+    mLevelScene.pitch = 0.0f;
+}
 
 void App::DrawLevelsPanel() {
     if (!ImGui::Begin("Levels")) {
@@ -166,11 +196,7 @@ void App::DrawLevelsPanel() {
                           nd.pos[2], idx);
             if (ImGui::Selectable(label, mPropSel == propCount + idx)) {
                 mPropSel = propCount + idx;
-                scene.eye[0] = (float)nd.pos[0];
-                scene.eye[1] = (float)nd.pos[1] + 50.0f;
-                scene.eye[2] = (float)nd.pos[2] + 500.0f;
-                scene.yaw = 0.0f;
-                scene.pitch = 0.0f;
+                FrameEyeAtEntry(nd);
             }
         }
         if (entryIdx.empty()) {
@@ -211,10 +237,8 @@ void App::DrawLevelsPanel() {
         }
         if (overView && ImGui::IsMouseReleased(ImGuiMouseButton_Right) &&
             !ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
-            const float cosPitch = std::cos(scene.pitch * kDeg);
-            const float forward[3] = { cosPitch * std::sin(scene.yaw * kDeg), std::sin(scene.pitch * kDeg),
-                                       -cosPitch * std::cos(scene.yaw * kDeg) };
-            const float right[3] = { std::cos(scene.yaw * kDeg), 0.0f, std::sin(scene.yaw * kDeg) };
+            float forward[3], right[3];
+            lookVectors(scene.yaw, scene.pitch, forward, right);
             const float up[3] = { right[1] * forward[2] - right[2] * forward[1],
                                   right[2] * forward[0] - right[0] * forward[2],
                                   right[0] * forward[1] - right[1] * forward[0] };
@@ -237,7 +261,19 @@ void App::DrawLevelsPanel() {
             float bestVolume = 0.0f;
             float bestDist = 0.0f;
             for (const PickTarget& target : mPickTargets) {
-                const float hit = rayHitsBox(scene.eye, dir, target.min, target.max);
+                float center[3], lo[3], hi[3];
+                float distSq = 0.0f;
+                for (int axis = 0; axis < 3; ++axis) {
+                    center[axis] = (target.min[axis] + target.max[axis]) * 0.5f;
+                    const float d = center[axis] - scene.eye[axis];
+                    distSq += d * d;
+                }
+                const float minHalf = std::sqrt(distSq) * tanHalf * (12.0f / viewH);
+                for (int axis = 0; axis < 3; ++axis) {
+                    lo[axis] = std::min(target.min[axis], center[axis] - minHalf);
+                    hi[axis] = std::max(target.max[axis], center[axis] + minHalf);
+                }
+                const float hit = rayHitsBox(scene.eye, dir, lo, hi);
                 if (hit < 0.0f) {
                     continue;
                 }
@@ -259,10 +295,8 @@ void App::DrawLevelsPanel() {
             scene.pitch = scene.pitch > 89.0f ? 89.0f : (scene.pitch < -89.0f ? -89.0f : scene.pitch);
         }
         if (overView && !io.WantTextInput) {
-            const float cosPitch = std::cos(scene.pitch * kDeg);
-            const float look[3] = { cosPitch * std::sin(scene.yaw * kDeg), std::sin(scene.pitch * kDeg),
-                                    -cosPitch * std::cos(scene.yaw * kDeg) };
-            const float right[3] = { std::cos(scene.yaw * kDeg), 0.0f, std::sin(scene.yaw * kDeg) };
+            float look[3], right[3];
+            lookVectors(scene.yaw, scene.pitch, look, right);
             const float step = mConfig.cameraSpeed * io.DeltaTime * 60.0f;
             auto move = [&](const float axis[3], float amount) {
                 scene.eye[0] += axis[0] * amount;
@@ -293,10 +327,7 @@ void App::DrawObjectsTab() {
         return;
     }
 
-    if (mModelIndex.empty()) {
-        mModelIndex = indexById(Lightbulb::ListO2rModelPaths("assets/model"));
-        mSpriteIndex = indexById(Lightbulb::ListO2rSpritePaths());
-    }
+    EnsureAssetIndexes();
     ImGui::Text("cubes %d   objects %d   spawns/warps/triggers %d   cameras %d", mSetup.cubeCount,
                 (int)mSetup.props.size(), (int)mSetup.nodes.size(), (int)mSetup.cameras.size());
     ImGui::Separator();
@@ -321,20 +352,18 @@ void App::DrawObjectsTab() {
                 ImGui::TableNextColumn();
                 ImGui::TextDisabled(prop.type == 2 ? "model" : prop.type == 0 ? "sprite" : "actor");
                 ImGui::TableNextColumn();
+                auto assetCell = [](const std::map<uint32_t, std::string>& index, uint32_t assetId, const char* kind) {
+                    const auto found = index.find(assetId);
+                    if (found != index.end()) {
+                        ImGui::TextUnformatted(assetShortName(found->second).c_str());
+                    } else {
+                        ImGui::TextDisabled("%s %X (missing)", kind, assetId);
+                    }
+                };
                 if (prop.type == 2) {
-                    const auto found = mModelIndex.find(0x2D1u + prop.id);
-                    if (found != mModelIndex.end()) {
-                        ImGui::TextUnformatted(assetShortName(found->second).c_str());
-                    } else {
-                        ImGui::TextDisabled("model %X (missing)", 0x2D1 + prop.id);
-                    }
+                    assetCell(mModelIndex, 0x2D1u + prop.id, "model");
                 } else if (prop.type == 0) {
-                    const auto found = mSpriteIndex.find(0x572u + prop.id);
-                    if (found != mSpriteIndex.end()) {
-                        ImGui::TextUnformatted(assetShortName(found->second).c_str());
-                    } else {
-                        ImGui::TextDisabled("sprite %X (missing)", 0x572 + prop.id);
-                    }
+                    assetCell(mSpriteIndex, 0x572u + prop.id, "sprite");
                 } else if (const char* an = Lightbulb::ActorEnumName(prop.id)) {
                     ImGui::TextUnformatted(an);
                 } else {
@@ -395,8 +424,7 @@ void App::DrawCamerasTab() {
                     mPropSel = row;
                 }
                 ImGui::TableNextColumn();
-                static const char* kCamType[] = { "?", "pivot", "static", "zoom" };
-                ImGui::TextDisabled("%s (%u)", c.type < 4 ? kCamType[c.type] : "?", (unsigned)c.type);
+                ImGui::TextDisabled("%s (%u)", camTypeName(c.type), (unsigned)c.type);
                 ImGui::TableNextColumn();
                 ImGui::Text("%.0f, %.0f, %.0f", c.pos[0], c.pos[1], c.pos[2]);
             }
@@ -552,10 +580,7 @@ void App::DrawPropertiesPanel() {
         ImGui::End();
         return;
     }
-    if (mModelIndex.empty()) {
-        mModelIndex = indexById(Lightbulb::ListO2rModelPaths("assets/model"));
-        mSpriteIndex = indexById(Lightbulb::ListO2rSpritePaths());
-    }
+    EnsureAssetIndexes();
     if (ImGui::BeginTabBar("##proptabs")) {
         if (ImGui::BeginTabItem("Selection")) {
             DrawSelectionProperties();
@@ -580,10 +605,35 @@ void App::DrawSelectionProperties() {
 
     if (mPropSel >= propCount + nodeCount) {
         const Lightbulb::SetupCamera& cam = mSetup.cameras[mPropSel - propCount - nodeCount];
-        static const char* kCamType[] = { "?", "Pivot", "Static", "Zoom" };
+        static const char* kCamPurpose[] = {
+            nullptr,
+            "Stays where it is and turns to keep Banjo in view.",
+            "Fixed view, position and angle both authored. Only cutscenes and scripts cut to it; "
+            "walking around never selects it.",
+            "Follows Banjo along the line toward him, staying between its close and far distance.",
+            "Picks a fallback camera behavior instead of framing a view itself; its position fields are unused.",
+        };
         ImGui::Text("Camera #%d", (int)cam.index);
         ImGui::Separator();
-        ImGui::Text("Type        : %s (%u)", cam.type < 4 ? kCamType[cam.type] : "?", (unsigned)cam.type);
+        ImGui::Text("Type        : %s (%u)", camTypeName(cam.type), (unsigned)cam.type);
+        if (cam.type < 5 && kCamPurpose[cam.type]) {
+            Lightbulb::ui::TextDisabledWrapped(kCamPurpose[cam.type]);
+        }
+        int volumes = 0;
+        for (const Lightbulb::SetupNode& nd : mSetup.nodes) {
+            if (nd.category == 9 && nd.id == cam.index) {
+                ++volumes;
+            }
+        }
+        if (volumes > 0) {
+            Lightbulb::ui::TextDisabledWrapped(
+                "This camera takes over while Banjo stands inside any of its %d trigger box%s that are drawn in "
+                "the same color as this camera.",
+                volumes, volumes == 1 ? "" : "es");
+        } else if (cam.type != 2) {
+            Lightbulb::ui::TextDisabledWrapped(
+                "No trigger boxes point at this camera; only game code can switch to it.");
+        }
         ImGui::Text("Position    : %.0f, %.0f, %.0f", cam.pos[0], cam.pos[1], cam.pos[2]);
         ImGui::Text("Pitch       : %.1f", cam.pitchYawRoll[0]);
         ImGui::Text("Yaw         : %.1f", cam.pitchYawRoll[1]);
@@ -601,7 +651,11 @@ void App::DrawSelectionProperties() {
         if (isSpawn) {
             ImGui::Text("Actor       : %s", actorName ? actorName : "(unnamed)");
         }
-        ImGui::Text("Id          : %X", node.id);
+        if (isSpawn) {
+            ImGui::Text("Id          : %X", node.id);
+        } else {
+            ImGui::Text("Id          : %u (0x%X)", node.id, node.id);
+        }
         if (isSpawn && !Lightbulb::EditorEntryPointId(node.id) && Lightbulb::ActorIsSpawnable(node.id) &&
             mRomhackPath.empty() && mLevelScene.sel >= 0 && mLevelScene.sel < (int)mLevelScene.entries.size() &&
             !Lightbulb::ActorRegisteredForMap(mLevelScene.entries[mLevelScene.sel].mapId, node.id)) {
@@ -612,6 +666,24 @@ void App::DrawSelectionProperties() {
             ImGui::Text("Model asset : %s", assetFullName(mModelIndex, modelAsset).c_str());
         }
         ImGui::Text("Category    : %u", (unsigned)node.category);
+        if (node.category == 9) {
+            const Lightbulb::SetupCamera* target = nullptr;
+            for (const Lightbulb::SetupCamera& sc : mSetup.cameras) {
+                if (sc.index == (int)node.id) {
+                    target = &sc;
+                    break;
+                }
+            }
+            if (target) {
+                Lightbulb::ui::TextDisabledWrapped(
+                    "Camera trigger: while Banjo stands in this box, Camera #%u (%s) takes over. It and this box "
+                    "share a color in the viewport.",
+                    node.id, camTypeName(target->type));
+            } else {
+                ImGui::TextColored(ImVec4(1.0f, 0.4f, 1.0f, 1.0f),
+                                   "Camera trigger for #%u, which doesn't exist - free camera here", node.id);
+            }
+        }
         ImGui::Text("Position    : %d, %d, %d", node.pos[0], node.pos[1], node.pos[2]);
         ImGui::Text("Radius      : %u", (unsigned)node.radius);
         ImGui::Text("Yaw (raw)   : %u", (unsigned)node.yawRaw);

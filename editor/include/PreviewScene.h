@@ -35,6 +35,20 @@ struct SkyLayer {
     float scale = 1.0f;
 };
 
+inline constexpr uint8_t kRareCameraColors[8][3] = {
+    { 0xFF, 0x00, 0x00 }, // Red
+    { 0x00, 0xFF, 0x00 }, // Green
+    { 0x00, 0x00, 0xFF }, // Blue
+    { 0xFF, 0xFF, 0x00 }, // Yellow
+    { 0xFF, 0x00, 0xFF }, // Pink
+    { 0xFF, 0xFF, 0xFF }, // White
+    { 0xFF, 0x80, 0x00 }, // Orange
+    { 0x00, 0xFF, 0xFF }, // Cyan
+};
+inline constexpr const char* kRareCameraColorNames[8] = {
+    "Red", "Green", "Blue", "Yellow", "Pink", "White", "Orange", "Cyan",
+};
+
 enum GizmoKind { GIZMO_CUBE = 0, GIZMO_PYRAMID = 1, GIZMO_CAMERA = 2, GIZMO_SPHERE = 3, GIZMO_WIREBOX = 4 };
 struct GizmoInstance {
     int kind = GIZMO_CUBE;
