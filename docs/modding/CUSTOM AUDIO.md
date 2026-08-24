@@ -124,7 +124,7 @@ Rare reused most of `ALKeyMap` for sound-effect bookkeeping rather than for key 
 | `ChainNext` | plays another sound after this one, by id; 0 for none |
 | `ChainDelayFrames` | how long to wait before that one |
 | `VolumeGroup` | which of 64 volume groups the sound belongs to |
-| `ReverbSend` | reverb amount, 0–15 |
+| `ReverbSend` | reverb amount, 0-15 |
 | `SamplePan`, `SampleVolume` | as they sound |
 
 If Lightbulb shows a **Chain** row, the sound is one link of a sequence. Replacing a single link on its own will sound wrong.
@@ -184,7 +184,7 @@ Music can be found in your `bk.o2r` at `assets/comusic/COMUSIC_<id>_<NAME>`:
 ```
 assets/comusic/COMUSIC_2_MM
 assets/comusic/COMUSIC_22_MMM
-assets/comusic/COMUSIC_C_TREASURE_TROVE_COVE
+assets/comusic/COMUSIC_5_TTC_VACATION_VERSION
 ```
 
 Export gives you a standard MIDI file per track:
@@ -209,7 +209,7 @@ Mumbo's Mountain, for example:
 | Outside Mumbo's hut | 6, 7, 12, 13, 15 |
 | Underwater | 9 |
 
-Rare wrote channels 0–5 as a self-contained arrangement (drumkit, marimba, bassoon, trombone, bass, clarinet) and reserved the rest for the zone variations: taiko and shakers for Conga and Mumbo areas, snare rolls and "hups" for Ticker's Tower, a harp for underwater. Channel 12 (bird calls) is in every surface zone, so it is the one channel always audible.
+Rare wrote channels 0-5 as a self-contained arrangement (drumkit, marimba, bassoon, trombone, bass, clarinet) and reserved the rest for the zone variations: taiko and shakers for Conga and Mumbo areas, snare rolls and "hups" for Ticker's Tower, a harp for underwater. Channel 12 (bird calls) is in every surface zone, so it is the one channel always audible.
 
 **Put your arrangement on the channels the map's main zone plays**, and use the others only for material meant for those specific places. 46 of the game's maps gate music this way; where a map defines no zones, all sixteen channels play all the time.
 
@@ -222,7 +222,7 @@ Some example instruments in your `bk.o2r`:
 ```
 assets/instruments/program1_marimba_keys0-76
 assets/instruments/program12_harmonica_keys55-66
-assets/instruments/program73_drum_kit
+assets/instruments/program14_tuba
 ```
 
 The number is the one you type in a sequencer. The key range appears when an instrument is multisampled and says which notes that sample covers. Lightbulb's Sounds panel lists and plays them all. Replacing an instrument is possible but blunt: they are shared across the whole soundtrack. Program 1 is used by 69 of the game's own tracks, for example, so swapping it changes all of them.
@@ -239,7 +239,7 @@ A track with neither plays once and stops.
 
 ## 13. Volume
 
-Each of the 176 slots has its own master volume, and most sit well below full scale. The median is 20000 of 32767, and only three slots use the full range. Mumbo's Mountain plays at 20000, about 4 dB down.
+Each of the 175 slots has its own master volume, and most sit well below full scale. The median is 20000 of 32767, and only three slots use the full range. Mumbo's Mountain plays at 20000, about 4 dB down.
 
 Set volume with a marker:
 
@@ -263,7 +263,7 @@ Only some do anything:
 
 Two ranges do something other than make sound:
 
-- **CC 106–119 signal the game**, not the synth. The organ puzzle in Mad Monster Mansion waits on one. Sekaiju's auto-repeat feature uses CC 111, which lands squarely in this range, so don't use it.
+- **CC 106-119 signal the game**, not the synth. The organ puzzle in Mad Monster Mansion waits on one. Sekaiju's auto-repeat feature uses CC 111, which lands squarely in this range, so don't use it.
 - **CC 126 and 127 mute and unmute a channel.** In General MIDI these are Mono Mode and Poly Mode; here they will silence part of your track.
 
 Torch warns about both on import. Anything else is ignored harmlessly.
@@ -274,12 +274,12 @@ Useful for judging whether a track will sit right before you build anything. Med
 
 | | vanilla | romhacks |
 |---|---|---|
-| tempo | 120 bpm | 101–120 bpm |
-| note onsets per second | 15.0 | 11–15 |
-| simultaneous voices | 5.3 | 4.4–6.7 |
-| note velocity, mean | 96 | 73–91 |
-| CC7, mean | 86 | 80–86 |
-| instruments used | 6 | 6–8 |
+| tempo | 120 bpm | 101-120 bpm |
+| note onsets per second | 15.0 | 11-15 |
+| simultaneous voices | 5.3 | 4.4-6.7 |
+| note velocity, mean | 96 | 73-91 |
+| CC7, mean | 86 | 80-86 |
+| instruments used | 6 | 6-8 |
 
 The synth has **24 voices**. Loud comes from density rather than level: a thin arrangement pinned to velocity 127 still sounds quieter than a full one at velocity 90, and pinning it destroys the dynamics as well.
 

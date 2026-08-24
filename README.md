@@ -86,21 +86,21 @@ _NOTE_: When using romhacks, only US v1.0 is supported, inherited from Banjo's B
 Custom assets are packed in `.o2r` or `.otr` files. To use custom assets, place them in the `mods` folder.
 
 If you're interested in creating and/or packing your own custom asset `.o2r`/`.otr` files, check out the following tools:
-* [**retro - OTR and O2R generator**](https://github.com/HarbourMasters64/retro)
-* [**fast64 - Blender plugin (Note that BK64 is not supported at this time)**](https://github.com/HarbourMasters/fast64)
+* [**retro - OTR and O2R generator**](https://github.com/HarbourMasters/retro)
+* [**fast64 - Blender plugin, with BK64 model and animation support**](https://github.com/HarbourMasters/fast64)
 
 Step-by-step guides for each kind of mod live in [`docs/modding/`](docs/modding/):
 * [**Texture packs**](docs/modding/TEXTURE%20PACKS.md) - replace any of the game's textures, same-size or HD, with retro
 * [**Custom animations**](docs/modding/CUSTOM%20ANIMATIONS.md) - edit the game's animations as YAML through Torch's modding mode
 * [**Custom dialog**](docs/modding/CUSTOM%20DIALOG.md) - dialog box codes: portraits, choices, substitution, and gameplay triggers
-* [**Custom models**](docs/modding/CUSTOM%20MODELS.md) - the model format, and how the boot-sequence mascot was made
+* [**Custom models**](docs/modding/CUSTOM%20MODELS.md) - the model format, and building one in Blender with fast64
 * [**Custom audio**](docs/modding/CUSTOM%20AUDIO.md) - replace a sound effect with your own audio, or a music track with your own MIDI
 * [**Language packs**](docs/modding/LANGUAGE%20PACKS.md) - add a new in-game language
 
 # Development
 
 ### Building
-If you want to manually compile Lighthouse, please consult the [building instructions](https://github.com/HarbourMasters/Lighthouse/blob/main/docs/BUILDING.md).
+If you want to manually compile Lighthouse, please consult the [building instructions](docs/BUILDING.md).
 
 ### Playtesting
 If you want to playtest a continuous integration build, you can find them at the links below. Keep in mind that these are for playtesting only, and you will likely encounter bugs and possibly crashes.

@@ -8,7 +8,7 @@ Packs are built end to end with **[Retro](https://github.com/HarbourMasters/retr
 
 ## 1. Extract the game's textures
 
-Open Retro and go **Create OTR / O2R → Replace Textures**. It asks whether you already have a texture replacement folder - answer **No** the first time, then:
+Open Retro and go **Create OTR / O2R -> Replace Textures**. It asks whether you already have a texture replacement folder - answer **No** the first time, then:
 
 1. Select your generated `bk.o2r` (the one your Lighthouse install plays from, so the entry names match exactly).
 2. Pick an output folder.
@@ -28,9 +28,9 @@ Entry names follow the base game's own layout - `assets/<category>/ASSET_<id>_<l
 
 | Pattern | What it is | Example |
 |---|---|---|
-| `…_tex_<i>` | the i-th texture of a model or level | `assets/model/ASSET_491_NOTE_DOOR_tex_1` |
-| `…_<frame>_<chunk>` | one chunk of a sprite frame | `assets/sprite/ASSET_36D_BLUE_EGG_0_0` |
-| `…_TLUT` | the palette of a CI4/CI8 texture | `assets/sprite/ASSET_36D_BLUE_EGG_0_TLUT` |
+| `..._tex_<i>` | the i-th texture of a model or level | `assets/model/ASSET_491_NOTE_DOOR_tex_1` |
+| `..._<frame>_<chunk>` | one chunk of a sprite frame | `assets/sprite/ASSET_36D_BLUE_EGG_0_0` |
+| `..._TLUT` | the palette of a CI4/CI8 texture | `assets/sprite/ASSET_36D_BLUE_EGG_0_TLUT` |
 
 The `ASSET_<id>` numbers are the game's own asset ids, so anything you find in the asset table or other docs maps straight onto a folder path.
 
@@ -57,21 +57,23 @@ Nearly half the game's textures are **palettized** (CI4/CI8): the texture stores
 
 Everything about working on them follows from one fact: **at pack time Retro reads back only the indices** - which slot each pixel uses - and in-game the colors still come from the TLUT. Three workflows cover every case:
 
-- **Recoloring: edit the `_TLUT` strip and nothing else.** This is our egg example: the blue egg is sprite `ASSET_36D_BLUE_EGG`, and repainting the blue entries in its `_TLUT` PNGs green recolors the egg everywhere that sprite is drawn - a handful of pixels changed in total. The grayscale texture PNG never enters into it.
+- **Recoloring: edit the `_TLUT` strip and nothing else.** This is our egg example: the blue egg is sprite `ASSET_36D_BLUE_EGG`, and repainting the blue entries in its `_TLUT` PNGs green recolors the egg everywhere that sprite is drawn - a handful of pixels changed in total. The grayscale texture PNG never enters into it. **Sprites only** - see the warning below.
 - **Redrawing in place: give the PNG its real palette first.** The TLUT strip *is* the texture's palette, in order - slot `N` in the PNG is color `N` in the strip. Import the strip's colors as the texture PNG's colormap (any palette-aware editor can; GIMP imports a palette from an image, Aseprite loads one from a file) and the grayscale art snaps into full color for you to paint on. Two rules: stay in indexed-color mode, and keep the slots where they are - paint with the existing entries rather than reordering or appending, because only the indices survive the round trip. (A CI texture saved un-paletted at its original size no longer matches its manifest format, and Retro skips it with a console note.)
 - **Skipping palettes entirely: upscale it.** Resize the texture (2x is plenty) and paint in full RGBA. A resized texture takes the HD path below, where the image ships as true color and the palette machinery isn't consulted at all. For any substantial redraw this is the path to take - it's what the big community packs do wholesale.
+
+**A model's palette is out of reach.** The first two workflows are sprite workflows: the engine loads a sprite's `_TLUT` sibling beside its image. A model doesn't work that way. Its palettes sit inside the model's own texture data, addressed by byte offset from the display list, and the model loader never reads a `_TLUT` resource at all. Retro still extracts the `assets/model/..._tex_<i>_TLUT` entries, since they're in the archive, but repainting one changes nothing in game and nothing warns you. **For anything under `assets/model/` or `assets/level/`, upscale instead.** An HD redraw ships as true color and never consults a palette, which is why the big packs never run into this.
 
 ### HD textures
 
 Any texture may be replaced at **higher than native resolution** - redraw it at 2x, 4x, whatever your artwork needs, keeping the original aspect ratio (clean integer multiples keep the pixels aligned with how the game tiles the original). Retro detects the size change and re-encodes the image as raw RGBA32 with the scale factors recorded in the resource header; the engine then maps it onto the original texture coordinates at draw time. This works for every format - and since an upscaled CI texture is stored as RGBA32, HD redraws are free of the palette rules above.
 
-This includes the **font sheets and HUD sprites**: the dialog and bold fonts are sprites like any other, and the port resolves their HD versions through the same replacement layer, so a texture pack can carry high-resolution fonts. (For fonts in *language packs* - which replace glyphs at SD inside the pack itself - see [LANGUAGE PACKS.md §5](LANGUAGE%20PACKS.md#5-fonts-and-glyphs); an HD sheet at `alt/assets/lang/<region>/…` composes on top of the pack's SD one automatically.)
+This includes the **font sheets and HUD sprites**: the dialog and bold fonts are sprites like any other, and the port resolves their HD versions through the same replacement layer, so a texture pack can carry high-resolution fonts. (For fonts in *language packs* - which replace glyphs at SD inside the pack itself - see [LANGUAGE PACKS.md #5](LANGUAGE%20PACKS.md#5-fonts-and-glyphs); an HD sheet at `alt/assets/lang/<region>/...` composes on top of the pack's SD one automatically.)
 
 ---
 
 ## 3. Pack it
 
-Back in Retro: **Create OTR / O2R → Replace Textures**, and this time answer **Yes**, selecting your `bk/` folder. Retro stages every changed texture; the bottom bar's **Finalize OTR / O2R** button opens the review list.
+Back in Retro: **Create OTR / O2R -> Replace Textures**, and this time answer **Yes**, selecting your `bk/` folder. Retro stages every changed texture; the bottom bar's **Finalize OTR / O2R** button opens the review list.
 
 Before finalizing, turn on **"Prepend `alt/`"**. This prefixes every entry with `alt/`, and you want it for two reasons:
 
@@ -101,19 +103,19 @@ Two special cases worth knowing: while a **romhack** is active, plain mods are s
 
 ## 5. Advanced: additive art and externally-named packs
 
-*(Everything in this section needs a Retro build newer than v0.2.1 - the BK64 additions currently in source.)*
+*(Everything in this section came with the BK64 additions, so it needs a current Retro build.)*
 
 **Additive textures.** Some art the port looks for exists in no archive at all - the path is probed at draw time under `alt/`, and simply misses until a pack supplies it:
 
 | Path shape | What it adds |
 |---|---|
-| `assets/sprite/<chunk>_<BLUE⎮GREEN⎮ORANGE⎮PURPLE⎮YELLOW>` | full-color art per Jinjo color, replacing the runtime tint of the shared gray head sprite |
+| `assets/sprite/<chunk>_<BLUE\|GREEN\|ORANGE\|PURPLE\|YELLOW>` | full-color art per Jinjo color, replacing the runtime tint of the shared gray head sprite |
 | `assets/boldfont/<mask chunk>_<sphere hex id>` | a pre-textured bold-font glyph for one world sphere, replacing the runtime mask-plus-fill composite |
 | `assets/lang/<region>/<asset path>` | a variant used only while that language is active |
 
 Retro recognizes these shapes: name the file accordingly (or alias onto the path, below) and it derives the size and format from the entry the path decorates, staging it even though it matches no manifest entry. Additive art always ships as true-color raw - author it at a clean integer multiple of its template's size.
 
-**Font glyph art.** Extraction records each font chunk's *drawn tile region* alongside its stored size, so glyph art authored at k× the tile - which is how font sheets are usually drawn - is padded onto the full stored canvas automatically, and bold-font glyphs additionally land on the aligned stride the game uploads with. Author at an integer multiple of either the tile or the full chunk and the packer sorts it out.
+**Font glyph art.** Extraction records each font chunk's *drawn tile region* alongside its stored size, so glyph art authored at a multiple of the tile - which is how font sheets are usually drawn - is padded onto the full stored canvas automatically, and bold-font glyphs additionally land on the aligned stride the game uploads with. Author at an integer multiple of either the tile or the full chunk and the packer sorts it out.
 
 **`aliases.json`.** To repack a pack whose files aren't named by archive path (an emulator-era Rice-named pack, say), drop an `aliases.json` next to `manifest.json`, mapping each source image - path relative to the folder, extension included - onto its archive target; use a list when one image feeds several targets:
 
@@ -133,4 +135,4 @@ Copy the pack's files into the extraction folder, add the map, and the normal re
 - **Never put a plain PNG at a game texture path.** Game textures are binary resources; Retro converts your PNGs into them at pack time. A raw `.png` file placed in an archive by hand doesn't parse - harmless under `alt/` (falls back), asset-destroying at the bare path. If you build archives outside Retro, this is the mistake to avoid.
 - **A CI texture saved un-paletted at its original size is skipped** (console note at pack time). Re-save as indexed, or resize it onto the HD path.
 - **Extracting from a modded archive** is unsupported territory - Retro warns about this itself. Always extract from a clean `bk.o2r`.
-- **Retro version:** written against Retro **v0.2.1**. The flow above (Replace Textures → manifest folder → Finalize) is the tool's core and stable across recent versions.
+- **Retro version:** the flow above (Replace Textures -> manifest folder -> Finalize) is the tool's core and stable across recent versions. The [#5](#5-advanced-additive-art-and-externally-named-packs) additions are newer, so build from source if a release doesn't have them yet.

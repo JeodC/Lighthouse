@@ -36,8 +36,8 @@ This decodes every asset into an editable form under `<workdir>/src/assets/asset
 You only edit the files you want to translate. Anything you leave alone stays in English. Next, edit the country code in **three places**:
 
 1. the folder name - `lang/us/` -> `lang/es/` (`es` for this example);
-2. the top-level key inside each yaml you keep - `lang/us/dialog/ASSET_…` -> `lang/es/dialog/ASSET_…`;
-3. both sides of every `modding.yml` entry - `assets/lang/us/…: assets/lang/us/….yaml` -> `assets/lang/es/…`.
+2. the top-level key inside each yaml you keep - `lang/us/dialog/ASSET_...` -> `lang/es/dialog/ASSET_...`;
+3. both sides of every `modding.yml` entry - `assets/lang/us/...: assets/lang/us/....yaml` -> `assets/lang/es/...`.
 
 Then delete the asset yamls you won't be modifying and prune their `modding.yml` entries to match.
 
@@ -70,7 +70,7 @@ These have the same idea, split into the question `Text` and the three answer `O
 lang/es/quizq/ASSET_1213_FF_QUIZ_QUESTION:
   Text:
     - [0x80, "YA SABES LO QUE HAY QUE HACER:"]
-    - [0x80, "$CU%NTAS NOTAS PARA LA PRIMERA PUERTA?"]   # ¿CUÁNTAS NOTAS…?
+    - [0x80, "$CU%NTAS NOTAS PARA LA PRIMERA PUERTA?"]   # ¿CUÁNTAS NOTAS...?
   Options:
     - [0x81, 0xfd, 0x6c, "50"]
     - [0x82, 0xfd, 0x6c, "100"]
@@ -83,17 +83,17 @@ One yaml hygiene rule: always put double quotes around your translations - an un
 
 ### How the text is encoded
 
-The quoted strings are sequences of **font-sheet slots**, not UTF-8. Every byte is an index into the game's font, so what you type is a *slot number*; it just happens to look like ASCII because the dialog font draws `A–Z`, `0–9`, and common punctuation in their ASCII positions. Type a literal `ñ` (UTF-8) into the yaml and you'll get garbage; you have to type the slot the font draws as `Ñ`.
+The quoted strings are sequences of **font-sheet slots**, not UTF-8. Every byte is an index into the game's font, so what you type is a *slot number*; it just happens to look like ASCII because the dialog font draws `A-Z`, `0-9`, and common punctuation in their ASCII positions. Type a literal `ñ` (UTF-8) into the yaml and you'll get garbage; you have to type the slot the font draws as `Ñ`.
 
-The dialog/quiz/grunty font (`0x6EB`) is a flat, contiguous sheet beginning at byte `0x21`. Byte `0x21` is the first glyph, `0x22` the second, and so on. The stock font holds 62 glyphs, so the reachable range is `0x21`–`0x5E`:
+The dialog/quiz/grunty font (`0x6EB`) is a flat, contiguous sheet beginning at byte `0x21`. Byte `0x21` is the first glyph, `0x22` the second, and so on. The stock font holds 62 glyphs, so the reachable range is `0x21`-`0x5E`:
 
 ```
 ! " # $ % & ' ( ) * + , - . /   0-9   : ; < = > ? @   A-Z   [ \ ] ^
 ```
 
-The stock font holds only the ASCII set - `A–Z`, `0–9`, and punctuation. **None of Spanish's accents are in it**: `¡ ¿ Á É Í Ó Ú Ñ` all live in byte positions the stock font draws as ASCII symbols (`#`, `%`, `&`, …). So each accent has to be **added** to the font, and you type it as whatever slot you put it in. Our Spanish pack repaints eight symbol slots - `#` `$` `%` `&` `(` `)` `*` `+` → `¡` `¿` `Á` `É` `Í` `Ó` `Ú` `Ñ` (full table in [#5](#5-fonts-and-glyphs)). That's why `COMPA+ERO` renders *COMPAÑERO* (`+` = Ñ) and `$EST%S` renders *¿ESTÁS*. A `\xNN` escape works for any byte inside a **single-quoted** string (`'\xFD'` style - the importer decodes them, and it's the form the exporter itself emits for text carrying inline control codes). Use it for slots past `0x7E`, an extended sheet's high glyphs included; a literal backslash in such a string is `\\`. Don't put high escapes in *double*-quoted strings - there the yaml parser processes them itself, which is fine up to `\x7F` but re-encodes `\x80`–`\xFF` as two UTF-8 bytes, desyncing the text.
+The stock font holds only the ASCII set - `A-Z`, `0-9`, and punctuation. **None of Spanish's accents are in it**: `¡ ¿ Á É Í Ó Ú Ñ` all live in byte positions the stock font draws as ASCII symbols (`#`, `%`, `&`, ...). So each accent has to be **added** to the font, and you type it as whatever slot you put it in. Our Spanish pack repaints eight symbol slots - `#` `$` `%` `&` `(` `)` `*` `+` -> `¡` `¿` `Á` `É` `Í` `Ó` `Ú` `Ñ` (full table in [#5](#5-fonts-and-glyphs)). That's why `COMPA+ERO` renders *COMPAÑERO* (`+` = Ñ) and `$EST%S` renders *¿ESTÁS*. A `\xNN` escape works for any byte inside a **single-quoted** string (`'\xFD'` style - the importer decodes them, and it's the form the exporter itself emits for text carrying inline control codes). Use it for slots past `0x7E`, an extended sheet's high glyphs included; a literal backslash in such a string is `\\`. Don't put high escapes in *double*-quoted strings - there the yaml parser processes them itself, which is fine up to `\x7F` but re-encodes `\x80`-`\xFF` as two UTF-8 bytes, desyncing the text.
 
-The same goes for lowercase `a–z` and any non-Latin script - no stock glyph, so you add one. There are two ways to add glyphs, both covered in [#5 Fonts and glyphs](#5-fonts-and-glyphs):
+The same goes for lowercase `a-z` and any non-Latin script - no stock glyph, so you add one. There are two ways to add glyphs, both covered in [#5 Fonts and glyphs](#5-fonts-and-glyphs):
 
 - **Repaint a spare slot.** Pick a slot you don't otherwise use (a punctuation symbol like `%` or `&`) and redraw it as the letter you need. The reachable range stays the same; you're just changing what a slot *looks* like. This is how our Spanish pack gets its `¡ ¿` and acute vowels - a handful of repainted symbol slots.
 - **Extend the sheet.** Add more glyphs to the font sprite. The reachable range grows with it: glyph #63 becomes byte `0x5F`, #64 `0x60`, and so on. Lighthouse reads the glyph count from *your* font and re-reads it on a live language switch, so the new bytes light up automatically. This is the route for a whole new alphabet - Cyrillic for a Russian pack, say, or Greek - where repainting a few symbols won't cut it.
@@ -127,7 +127,7 @@ Torch turns this into the `langinfo` manifest that Lighthouse reads to build its
 - **`region`** (optional) - the folder your assets live under inside the finished `.o2r` (`lang/<region>/`). Defaults to the cartridge region; we set `es` so a Spanish pack doesn't collide with others.
 - **`strings`** (optional) - translations for hardcoded UI text the asset pipeline can't reach; see the next section.
 
-With no `langinfo.yml` at all, the build names the language after the cartridge region (US → `English (US)`). That fallback is exactly how the retail `bkpal` / `bkjp` packs are produced.
+With no `langinfo.yml` at all, the build names the language after the cartridge region (US -> `English (US)`). That fallback is exactly how the retail `bkpal` / `bkjp` packs are produced.
 
 ### Hardcoded UI strings
 
@@ -154,7 +154,7 @@ strings:
   # File-select prompts
   "USE THE CONTROL STICK TO SELECT A GAME.": "USA EL STICK PARA ELEGIR UNA PARTIDA."
   "PRESS A TO PLAY THE GAME OR Z TO ERASE IT!": "PULSA A PARA JUGAR O Z PARA BORRAR."
-  "ARE YOU SURE? PRESS A TO CONFIRM, OR B TO CANCEL.": "$SEGURO? PULSA A PARA CONFIRMAR O B PARA CANCELAR."  # ¿SEGURO?…
+  "ARE YOU SURE? PRESS A TO CONFIRM, OR B TO CANCEL.": "$SEGURO? PULSA A PARA CONFIRMAR O B PARA CANCELAR."  # ¿SEGURO?...
 ```
 
 (`$` `%` `(` are the spare slots this pack repaints as `¿` `Á` `Í`; see [#5](#5-fonts-and-glyphs).)
@@ -178,9 +178,9 @@ That line is assembled at runtime from the save file - game number, play time, j
 | `": TIME "`  | label before the clock |
 | `": EMPTY"`  | shown instead, for an empty file |
 | `" JIGSAW"`  | jiggy noun, count of 1 |
-| `" JIGSAWS"` | jiggy noun, count ≠ 1 |
+| `" JIGSAWS"` | jiggy noun, any other count |
 | `" NOTE"`    | note noun, count of 1 |
-| `" NOTES"`   | note noun, count ≠ 1 |
+| `" NOTES"`   | note noun, any other count |
 
 For Spanish:
 
@@ -195,7 +195,7 @@ strings:
   " NOTES": " NOTAS"
 ```
 
-…which produces `PARTIDA 1: TIEMPO 0:12:34,` / `5 PIEZAS, 100 NOTAS`.
+...which produces `PARTIDA 1: TIEMPO 0:12:34,` / `5 PIEZAS, 100 NOTAS`.
 
 One limit comes with this approach: **word order is fixed by the engine.** The number always precedes its noun and the prefix always precedes the game number, so a language that needs the count *after* the noun can't reorder it here. The numbers and the clock are rendered by the engine and aren't translatable - only the words around them are. And the rebuild only happens for a pack that actually supplies these `strings:`; a base US/PAL game keeps its own built-in line.
 
@@ -217,7 +217,7 @@ The importer walks the asset list: your edited yamls are re-encoded from `<workd
 
 ## 5. Fonts and glyphs
 
-If your translation only uses characters the stock font already draws - uppercase `A–Z`, digits, and punctuation - you're finished at step 4. The moment you need anything else (any accent, lowercase, or a non-Latin script), you ship a **replacement font sheet**. BK keeps its fonts as CI8 sprites and draws text with two of them:
+If your translation only uses characters the stock font already draws - uppercase `A-Z`, digits, and punctuation - you're finished at step 4. The moment you need anything else (any accent, lowercase, or a non-Latin script), you ship a **replacement font sheet**. BK keeps its fonts as CI8 sprites and draws text with two of them:
 
 | Asset                                  | Used for |
 |----------------------------------------|----------|
@@ -237,13 +237,13 @@ Each repainted glyph is just a base letter with an accent added - `Á` is the `A
 
 The swap is live: glyphs apply both when the pack is chosen at boot and when you switch to it from the options menu, because the runtime re-decodes the font slots on every language change (and picks up an extended sheet's larger glyph count at the same time). Switching back to a built-in language restores the originals.
 
-Everything you replace here is **SD**. High-resolution versions are a separate, optional layer built with Retro - see [TEXTURE PACKS.md](TEXTURE%20PACKS.md); an HD sheet ships at `alt/assets/lang/<region>/…` and composes on top of your SD pack automatically.
+Everything you replace here is **SD**. High-resolution versions are a separate, optional layer built with Retro - see [TEXTURE PACKS.md](TEXTURE%20PACKS.md); an HD sheet ships at `alt/assets/lang/<region>/...` and composes on top of your SD pack automatically.
 
 ---
 
 ## 6. Region-only content (additive assets)
 
-A little text exists in the PAL/JP versions but **not** in US v1.0, so the US export has no file for it. The clearest case is the **Motzand parade credit** (canonical dialog `0x11CA`): PAL and JP move Motzand into the Furnace-Fun parade, and the dialog shown in his slot is the game's *localization-team credit* — the heading "WORD SWOPPING" followed by the translators' names. US v1.0 never had that slot, so it never populates that dialog: its parade-credit dialogs run contiguously from `0x11AF` to `0x11C9`, and `0x11CA` is simply the first empty id past the end. That empty slot is what your pack fills. (PAL/JP keep the same credit at their own ids — PAL `0xBF9`, for instance — and the language system re-points `0x11CA` to it on those bases.)
+A little text exists in the PAL/JP versions but **not** in US v1.0, so the US export has no file for it. The clearest case is the **Motzand parade credit** (canonical dialog `0x11CA`): PAL and JP move Motzand into the Furnace-Fun parade, and the dialog shown in his slot is the game's *localization-team credit* - the heading "WORD SWOPPING" followed by the translators' names. US v1.0 never had that slot, so it never populates that dialog: its parade-credit dialogs run contiguously from `0x11AF` to `0x11C9`, and `0x11CA` is simply the first empty id past the end. That empty slot is what your pack fills. (PAL/JP keep the same credit at their own ids - PAL `0xBF9`, for instance - and the language system re-points `0x11CA` to it on those bases.)
 
 You can still ship that content by declaring it as an **additive** asset - a slot the base ROM leaves empty that your pack fills:
 
@@ -260,7 +260,7 @@ You can still ship that content by declaring it as an **additive** asset - a slo
        - [0x4,  ""]
    ```
 
-2. **Register it in `modding.yml`** (the export won't have, since the slot was empty). Add one line under `assets:`, with the full `assets/…` path as both key and value:
+2. **Register it in `modding.yml`** (the export won't have, since the slot was empty). Add one line under `assets:`, with the full `assets/...` path as both key and value:
 
    ```yaml
      assets/lang/es/dialog/ASSET_11CA_MOTZAND: assets/lang/es/dialog/ASSET_11CA_MOTZAND.yaml

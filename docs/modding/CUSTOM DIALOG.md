@@ -40,7 +40,7 @@ A box code of `0x80`+ means "text box, spoken by portrait `code - 0x80`". The po
 | `0x81`/`0x82` | Kazooie | | `0xB5` | Gruntilda |
 | `0x83` | Bottles | | `0xCB` | Brentilda |
 
-Valid codes run `0x80`-`0xDD`; the retail game tops out at `0xDB`. Consecutive boxes with the *same* portrait code are grouped into one on-screen box as successive lines (up to 8), so a new code is also what forces a new box.
+Valid codes run `0x80`-`0xDE`; the retail game tops out at `0xDB`. Consecutive boxes with the *same* portrait code are grouped into one on-screen box as successive lines (up to 8), so a new code is also what forces a new box.
 
 ### Commands: `0x01`-`0x09`
 
@@ -51,12 +51,12 @@ Codes below `0x20` are commands, not text. The game implements nine:
 | `0x01` | **Choice** | A/B prompt. The result (A = 1, B = 0) is handed to the actor's completion callback, which decides what happens - the dialog itself doesn't branch. |
 | `0x02` | Yield, keep alive | Minimize this box but let it survive into the next dialog (used to chain conversations). |
 | `0x03` | Choice, closing | Like `0x01`, but both boxes close after the answer. |
-| `0x04` | **Close** | Shut this box and hand over to the other list. The standard terminator, every `Bottom` and `Top` ends with one. |
+| `0x04` | **Close** | Shut this box and hand over to the other list. The standard terminator - nearly every `Bottom` and `Top` ends with one; the exceptions end on a choice or a `0x02` yield into the next conversation. |
 | `0x05` | Minimize, yield | Implemented but unused by the retail game. |
 | `0x06` | **Hand over** | The back-and-forth marker: minimize, pre-load the next speaker's portrait, and switch to the other box. This is what bounces a conversation between `Bottom` and `Top`. |
-| `0x07` | **Trigger** | Fire a gameplay event - see [§4](#4-scripting-gameplay-the-trigger-box). |
-| `0x08` | Text variant | One replacement candidate for a `~` in the preceding text box - see [§3](#3-live-substitution). |
-| `0x09` | Number slot | Replace the `~` in the preceding text box with a live number - see [§3](#3-live-substitution). |
+| `0x07` | **Trigger** | Fire a gameplay event - see [#4](#4-scripting-gameplay-the-trigger-box). |
+| `0x08` | Text variant | One replacement candidate for a `~` in the preceding text box - see [#3](#3-live-substitution). |
+| `0x09` | Number slot | Replace the `~` in the preceding text box with a live number - see [#3](#3-live-substitution). |
 
 Codes `0x0A`-`0x1F` fall through to garbage - don't use them. And a yaml hygiene reminder from the language guide: the box counts are recomputed on import, so adding and removing rows is always safe.
 
@@ -88,9 +88,9 @@ The `0x07` box is the interesting one. When the conversation reaches it, nothing
 
 Blubber end to end:
 
-1. His dialog `ASSET_A0D_BLUBBER_COMPLETE` (shown in [§1](#1-anatomy-of-a-dialog)) carries `[0x7, '\x01']` between "TAKE THIS REWARD!" and "I'M OFF TER SPEND…".
+1. His dialog `ASSET_A0D_BLUBBER_COMPLETE` (shown in [#1](#1-anatomy-of-a-dialog)) carries `[0x7, '\x01']` between "TAKE THIS REWARD!" and "I'M OFF TER SPEND...".
 2. When Blubber opens it, he passes two callbacks ([blubber.c:96](../../src/TTC/ch/blubber.c#L96)) - one for completion, one for triggers.
-3. The trigger callback ([blubber.c:77](../../src/TTC/ch/blubber.c#L77)) calls `jiggy_spawn(JIGGY_14_TTC_BLUBBER, …)` and puffs steam at the spawn point.
+3. The trigger callback ([blubber.c:77](../../src/TTC/ch/blubber.c#L77)) calls `jiggy_spawn(JIGGY_14_TTC_BLUBBER, ...)` and puffs steam at the spawn point.
 
 So the jiggy pops **mid-sentence**, exactly where the writer placed the box. Move the `0x07` row and the spawn moves with it; delete it and the jiggy never appears; add a second and the spawn fires twice. (The variant dialog for when you've already collected the jiggy, `ASSET_A2A`, simply has no trigger box.)
 
@@ -109,11 +109,11 @@ Inside the text, any byte that isn't a glyph in the current font falls into a co
 
 | Sequence | Effect |
 |---|---|
-| `\xFDh` … `\xFDl` | **Shaky text** on … off (per-glyph wobble) |
+| `\xFDh` ... `\xFDl` | **Shaky text** on ... off (per-glyph wobble) |
 | `\xFDf` | Toggle dialog <-> bold font |
 | `\xFDb` | Toggle a black panel behind the text |
 | `\xFDp` | Toggle monospaced spacing |
-| `\xFDj` … `\xFDe` | Enter/leave the extended (JP) glyph sheet, where bytes are raw glyph indices |
+| `\xFDj` ... `\xFDe` | Enter/leave the extended (JP) glyph sheet, where bytes are raw glyph indices |
 
 Type them in **single-quoted** yaml (`'I FEEL \xFDhALL\xFDl FUNNY'`) - the importer decodes `\xNN` escapes there, while double quotes hand them to the yaml parser instead (see the [language guide's encoding notes](LANGUAGE%20PACKS.md#how-the-text-is-encoded)). Pauses, scroll speed, and line wrapping are *not* inline codes: punctuation pauses automatically, the player controls speed, and wrapping is automatic at 24 printable characters.
 
@@ -121,8 +121,35 @@ Because the switch catches every non-glyph byte, a **bare lowercase** `b d e f h
 
 ---
 
-## 6. Build and test
+## 6. Quiz and Grunty questions
 
-The quiz and Grunty-question assets (`quizq/`, `gruntyq/`) share this text encoding but use a 4-element row - `[cmd, 0xfd, 0x6c, "text"]` - whose two middle bytes must be kept; the importer rejects an option row without them (details in the [language guide](LANGUAGE%20PACKS.md#quiz-and-grunty-questions)).
+Furnace Fun's quiz (`quizq/`, 170 questions) and the final boss's round (`gruntyq/`, 30) are their own asset types, but they share this text encoding. The yaml splits a question into its `Text` lines and its answer `Options`:
 
-Otherwise, everything is the standard flow: edit the yaml, `torch modding import o2r`, pull the changed `assets/dialog/…` entries into a mod with `torch pack`, and drop it in `mods/`. A two-minute test for the trigger mechanics: move Blubber's `[0x7, '\x01']` row *above* his first line, deliver his gold, and the jiggy pops before he says a word.
+```yaml
+quizq/ASSET_1213_FF_QUIZ_QUESTION:
+  Text:
+    - [0x80, "YOU FOUND ENOUGH, YOU KNOW THE SCORE,"]
+    - [0x80, "HOW MANY NOTES FOR THE FIRST NOTE DOOR?"]
+  Options:
+    - [0x81, 0xfd, 0x6c, "50"]
+    - [0x82, 0xfd, 0x6c, "100"]
+    - [0x83, 0xfd, 0x6c, "75"]
+```
+
+An option is a 4-element row whose two middle bytes must be kept - the importer rejects a row without them. All 200 questions carry three options, numbered `0x81`, `0x82`, `0x83`.
+
+### Which option is the correct one
+
+The yaml doesn't say, and you need to know before you can rewrite a question. It comes from two count bytes the port stamps onto each type ([`DialogFactory.cpp:216`](../../src/port/Resource/Importers/DialogFactory.cpp#L216) and `:235`): how many options are *candidate answers*, and how many are pure decoys. The question manager reads those, picks the correct one, then fills the other two slots at random from what's left ([`questionmanager.c:305`](../../src/core2/quiz/questionmanager.c#L305)).
+
+**Quiz questions have one candidate, so `0x81` is always the correct answer.** `0x82` and `0x83` are the decoy pool and are always wrong. The example above bears that out - the first note door does cost 50 notes. All three still appear on screen every time; the shuffle only decides which line each one lands on.
+
+**Grunty questions have three candidates, so any of the three can be correct.** The save decides which: the first time Brentilda spawns in the lair she rolls a seed into the save file ([`brentilda.c:106`](../../src/lair/ch/brentilda.c#L106)), and every question's answer derives from it, fixed for that file from then on. That's the Brentilda mechanic: her gossip ([#3](#3-live-substitution)) is reading out the same value the boss will grade you against. Nothing in the asset marks the true one, so **a Grunty question's three options have to stay interchangeable**. Reword them freely, but don't write a set where one answer is obviously the real one - two thirds of the time the game will be looking for a different row.
+
+---
+
+## 7. Build and test
+
+Everything here is the standard flow: edit the yaml, `torch modding import o2r`, pull the changed `assets/dialog/...` entries into a mod with `torch pack`, and drop it in `mods/`. Translating this text rather than rewriting it is the [language guide's](LANGUAGE%20PACKS.md#quiz-and-grunty-questions) job.
+
+A two-minute test for the trigger mechanics: move Blubber's `[0x7, '\x01']` row *above* his first line, deliver his gold, and the jiggy pops before he says a word.
