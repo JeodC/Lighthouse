@@ -215,6 +215,22 @@ cpack
 cmake --build build-cmake --target clean
 ```
 
+# Lightbulb (level explorer)
+
+Lightbulb is the project's level explorer: it opens a `bk.o2r` and lets you fly through every map with its setup data visualized, plus model, sprite, sound, and music viewers. Editing is planned. The [level editing guide](modding/LEVEL%20EDITING.md) explains everything it shows. It builds from the same tree with one extra flag on the configure step:
+
+```powershell
+# Windows
+& 'C:\Program Files\CMake\bin\cmake' -S . -B "build/x64" -G "Visual Studio 17 2022" -T v143 -A x64 -DBUILD_EDITOR=ON
+```
+
+```bash
+# Linux / macOS
+cmake -H. -Bbuild-cmake -GNinja -DBUILD_EDITOR=ON
+```
+
+`Lightbulb` builds beside `Lighthouse` and installs into the same package, so it's inside the appimage and the macOS app rather than sitting next to them. Since those formats only run one executable, the game hands off to it: pass `--editor` to Lighthouse and it launches Lightbulb from beside itself instead of booting the game. Running the `Lightbulb` binary directly works too.
+
 # Compatible Roms
 Any retail version. See [the readme](https://github.com/HarbourMasters/Lighthouse/blob/develop/README.md#1-verify-your-rom-dump)
 

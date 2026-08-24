@@ -2,10 +2,6 @@
 
 #include "port/FilePicker.h"
 #include "O2rImport.h"
-#include <windows.h>
-
-#include <commdlg.h>
-#include <shlobj.h>
 
 #include <cstring>
 #include <ship/Context.h>

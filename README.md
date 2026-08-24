@@ -88,6 +88,7 @@ Custom assets are packed in `.o2r` or `.otr` files. To use custom assets, place 
 If you're interested in creating and/or packing your own custom asset `.o2r`/`.otr` files, check out the following tools:
 * [**retro - OTR and O2R generator**](https://github.com/HarbourMasters/retro)
 * [**fast64 - Blender plugin, with BK64 model and animation support**](https://github.com/HarbourMasters/fast64)
+* **Lightbulb** - the level explorer included with releases - see [below](#lightbulb)
 
 Step-by-step guides for each kind of mod live in [`docs/modding/`](docs/modding/):
 * [**Texture packs**](docs/modding/TEXTURE%20PACKS.md) - replace any of the game's textures, same-size or HD, with retro
@@ -97,6 +98,23 @@ Step-by-step guides for each kind of mod live in [`docs/modding/`](docs/modding/
 * [**Custom audio**](docs/modding/CUSTOM%20AUDIO.md) - replace a sound effect with your own audio, or a music track with your own MIDI
 * [**Language packs**](docs/modding/LANGUAGE%20PACKS.md) - add a new in-game language
 * [**Level editing**](docs/modding/LEVEL%20EDITING.md) - the map setup files: props, nodes, camera zones, and what Lightbulb shows
+
+# Lightbulb
+
+Lightbulb is the level explorer packaged with Lighthouse. Open your `bk.o2r` in it and you can fly through any map. It's read-only for now; editing is planned. The [level editing guide](docs/modding/LEVEL%20EDITING.md) explains what everything it draws means.
+
+Lightbulb ships with Lighthouse, in the same download, and launches by direct executable or with the `--editor` flag:
+
+#### Windows
+* `./Lighthouse.exe --editor`
+
+#### Linux
+* `./lighthouse.appimage --editor`
+
+#### MacOS
+* `./Lighthouse.app/Contents/MacOS/Lighthouse --editor`
+
+Lightbulb offers your `bk.o2r` on startup when it sits in the same folder; otherwise pick it with **File -> Open bk.o2r...**.
 
 # Development
 

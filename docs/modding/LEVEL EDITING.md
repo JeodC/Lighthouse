@@ -2,7 +2,7 @@
 
 A Banjo-Kazooie map is two kinds of asset: the **level models** (`assets/level/`, the geometry you walk on) and one **setup file** per map (`assets/setup`). The setup file is everything *placed in* the world: scenery props, collectible sprites, actor spawns, camera definitions, point lights, and the invisible marker nodes that decide where the camera changes, where enemies may roam, and which save flag a jiggy sets. This doc is the reference for what's in that file and what each piece does.
 
-`torch modding export` writes each setup out as a readable yaml, but nothing imports it back - editing the yaml does nothing. **Lightbulb**, the editor shipped next to Lighthouse (`-DBUILD_EDITOR=ON`), is being built for this work and already draws everything below. A finished setup edit ships like any other mod: the changed `assets/setup/...` entry in an `.o2r`, later archive wins.
+`torch modding export` writes each setup out as a readable yaml, but nothing imports it back - editing the yaml does nothing. **Lightbulb**, the level explorer packaged with Lighthouse and launched with `Lighthouse --editor`, is being built for this work and already draws everything below. A finished setup edit ships like any other mod: the changed `assets/setup/...` entry in an `.o2r`, later archive wins.
 
 ---
 

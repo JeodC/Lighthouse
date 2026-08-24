@@ -61,7 +61,7 @@ jobs:
           submodules: recursive
       - name: Build
         run: |
-          cmake -S . -B "build/x64" -G "Visual Studio 17 2022" -T v143 -A x64
+          cmake -S . -B "build/x64" -G "Visual Studio 17 2022" -T v143 -A x64 -DBUILD_EDITOR=ON
           cmake --build ./build/x64 --config Release --parallel 10
       - name: Download lighthouse.o2r
         uses: actions/download-artifact@v8
@@ -73,6 +73,7 @@ jobs:
           mkdir lighthouse-release
           mkdir lighthouse-release/debug
           mv build/x64/Lighthouse.exe lighthouse-release/
+          mv build/x64/Lightbulb.exe lighthouse-release/
           mv build/x64/lighthouse.o2r lighthouse-release/
           mv build/x64/*.pdb lighthouse-release/debug/
           mv README.md lighthouse-release/readme.txt
@@ -100,7 +101,7 @@ jobs:
           key: macos # ccache-macos
       - name: Build
         run: |
-          cmake -H. -Bbuild-cmake -GNinja -DCMAKE_BUILD_TYPE=Release -D CMAKE_C_COMPILER_LAUNCHER=ccache -D CMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+          cmake -H. -Bbuild-cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DBUILD_EDITOR=ON -D CMAKE_C_COMPILER_LAUNCHER=ccache -D CMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
           cmake --build build-cmake -j
       - name: Download lighthouse.o2r
         uses: actions/download-artifact@v8
@@ -193,7 +194,7 @@ jobs:
           path: ./build-cmake
       - name: Build
         run: |
-          cmake -H. -Bbuild-cmake -GNinja -DCMAKE_BUILD_TYPE=Release
+          cmake -H. -Bbuild-cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DBUILD_EDITOR=ON
           cmake --build build-cmake --config Release -j3
           (cd build-cmake && cpack -G External)
           wget -O gamecontrollerdb.txt https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/refs/heads/master/gamecontrollerdb.txt

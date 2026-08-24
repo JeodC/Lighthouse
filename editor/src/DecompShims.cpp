@@ -41,8 +41,6 @@ static s32 sListenerUnderwater = 0;
 
 s32 gFramebufferWidth = DEFAULT_FRAMEBUFFER_WIDTH;
 s32 gFramebufferHeight = DEFAULT_FRAMEBUFFER_HEIGHT;
-alignas(0x40) u8 D_8000E800[DEFAULT_FRAMEBUFFER_WIDTH * DEFAULT_FRAMEBUFFER_HEIGHT * sizeof(u16)];
-u16 gFramebuffers[2][DEFAULT_FRAMEBUFFER_WIDTH * DEFAULT_FRAMEBUFFER_HEIGHT];
 
 void BK_LOG_WARN(const char* fmt, ...) {
 }

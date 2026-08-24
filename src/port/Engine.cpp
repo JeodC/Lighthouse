@@ -280,7 +280,7 @@ void GameEngine::FinishInit() {
     Ship::Context::GetRawInstance()->GetLogger()->set_pattern("[%H:%M:%S.%e] [%s:%#] [%l] %v");
     SPDLOG_INFO("Starting Lighthouse version {} (Branch: {} | Commit: {})", (char*)gBuildVersion, (char*)gGitBranch,
                 (char*)gGitCommitHash);
-    Lighthouse::FlushLaunchHackLog();
+    Lighthouse::FlushLaunchLog();
 
     context->InitFileDropMgr();
     context->InitCrashHandler();

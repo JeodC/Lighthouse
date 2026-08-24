@@ -180,11 +180,21 @@ if(CMAKE_GENERATOR MATCHES "Visual Studio")
     set_property(TARGET Lightbulb PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 endif()
 
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    install(TARGETS Lightbulb DESTINATION . COMPONENT ${PROJECT_NAME})
+endif()
+
+if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
+    install(TARGETS Lightbulb DESTINATION ../MacOS COMPONENT ${PROJECT_NAME})
+endif()
+
 if(MSVC)
     target_compile_options(Lightbulb PRIVATE /utf-8)
 endif()
 
-add_custom_command(TARGET Lightbulb POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${LH}/lighthouse.o2r $<TARGET_FILE_DIR:Lightbulb>/lighthouse.o2r
-)
+if(EXISTS "${LH}/lighthouse.o2r")
+    add_custom_command(TARGET Lightbulb POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${LH}/lighthouse.o2r $<TARGET_FILE_DIR:Lightbulb>/lighthouse.o2r
+    )
+endif()

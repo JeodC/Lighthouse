@@ -18,7 +18,6 @@ extern "C" {
 
 #include "App.h"
 
-#include <crtdbg.h>
 #include <cstdio>
 #include <cstdlib>
 #include <spdlog/spdlog.h>

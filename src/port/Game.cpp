@@ -1,4 +1,5 @@
 #include "Engine.h"
+#include "LaunchArgs.h"
 #include <atomic>
 #include <condition_variable>
 #include <cstring>
@@ -298,6 +299,10 @@ int SDL_main(int argc, char* argv[]) {
         if (!base.empty() && base != ".") {
             std::filesystem::current_path(base, ec);
         }
+    }
+
+    if (Lighthouse::LaunchEditorIfRequested(argc, argv)) {
+        return 0;
     }
 
     GameEngine::Create(argc, argv);
