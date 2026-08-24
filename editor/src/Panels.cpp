@@ -532,7 +532,8 @@ void App::DrawLayersPanel() {
     for (const auto& row : kRows) {
         changed |= ImGui::CheckboxFlags(row.name, &mConfig.layers, row.bit);
         if (row.bit == Lightbulb::kLayerUnregistered && ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Show actor spawns this map's spawn queues never register. Vanilla only, romhacks unaffected.");
+            ImGui::SetTooltip(
+                "Show actor spawns this map's spawn queues never register. Vanilla only, romhacks unaffected.");
         }
     }
     if (changed) {

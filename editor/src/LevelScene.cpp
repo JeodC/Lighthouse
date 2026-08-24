@@ -177,10 +177,9 @@ bool App::RenderLevelGameFrame() {
 
     auto emitSprite = [&](const Lightbulb::O2rSpriteTex& spriteTex, const float pos[3], float scale, int phase,
                           int sel) {
-        const Lightbulb::SpriteFrame anim = mConfig.animateObjects
-                                                ? Lightbulb::SpriteFrameAt(spriteTex, now, phase)
-                                                : Lightbulb::SpriteFrame{ Lightbulb::SpriteRestFrame(spriteTex),
-                                                                          false };
+        const Lightbulb::SpriteFrame anim =
+            mConfig.animateObjects ? Lightbulb::SpriteFrameAt(spriteTex, now, phase)
+                                   : Lightbulb::SpriteFrame{ Lightbulb::SpriteRestFrame(spriteTex), false };
         Lightbulb::AppendSpriteBillboards(spriteTex, anim.frame, -1, pos, scale, anim.mirror, false, sprs);
 
         static std::vector<Lightbulb::SpriteBillboard> allFrames;
@@ -319,11 +318,9 @@ bool App::RenderLevelGameFrame() {
                     inst.rotDeg[1] = std::atan2(scene.eye[0] - inst.pos[0], scene.eye[2] - inst.pos[2]) / kDeg;
                     float toEye[3] = { scene.eye[0] - inst.pos[0], scene.eye[1] - inst.pos[1],
                                        scene.eye[2] - inst.pos[2] };
-                    const float dist =
-                        std::sqrt(toEye[0] * toEye[0] + toEye[1] * toEye[1] + toEye[2] * toEye[2]);
+                    const float dist = std::sqrt(toEye[0] * toEye[0] + toEye[1] * toEye[1] + toEye[2] * toEye[2]);
                     if (dist > 1.0f) {
-                        const float clear =
-                            std::min((nd.radius ? (float)nd.radius : 50.0f) + 10.0f, dist * 0.5f);
+                        const float clear = std::min((nd.radius ? (float)nd.radius : 50.0f) + 10.0f, dist * 0.5f);
                         for (int axis = 0; axis < 3; ++axis) {
                             inst.pos[axis] += toEye[axis] / dist * clear;
                         }

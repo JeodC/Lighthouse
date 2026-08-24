@@ -50,6 +50,7 @@ public:
         mPos += n;
         return at;
     }
+
 private:
     const uint8_t* mData;
     size_t mSize;

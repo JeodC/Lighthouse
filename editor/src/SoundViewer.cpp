@@ -13,7 +13,6 @@
 #include <string>
 #include <vector>
 
-
 namespace {
 
 SDL_AudioDeviceID sDevice = 0;

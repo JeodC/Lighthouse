@@ -117,8 +117,8 @@ bool SurfaceAboveIsWater(BKModelBin* model, const float pos[3]) {
     f32 from[3] = { pos[0], pos[1] - 100.0f, pos[2] };
     f32 to[3] = { pos[0], pos[1] + 7000.0f, pos[2] };
     f32 normal[3] = { 0.0f, 0.0f, 0.0f };
-    BKCollisionTriangle* tri = func_802E76B0(modelbin_getCollisionList(model), modelbin_getVtxList(model), from, to,
-                                             normal, 0xF800FF0F);
+    BKCollisionTriangle* tri =
+        func_802E76B0(modelbin_getCollisionList(model), modelbin_getVtxList(model), from, to, normal, 0xF800FF0F);
     if (tri == nullptr) {
         return false;
     }
