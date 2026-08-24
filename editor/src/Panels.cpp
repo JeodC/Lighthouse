@@ -74,6 +74,67 @@ const char* camTypeName(uint8_t type) {
     return type < 5 ? kNames[type] : "?";
 }
 
+const char* nodeCategoryName(uint8_t category) {
+    switch (category) {
+        case 3:
+            return "Warp";
+        case 4:
+            return "Contact trigger";
+        case 6:
+            return "Actor spawn";
+        case 7:
+            return "Enemy boundary";
+        case 8:
+            return "Path node";
+        case 9:
+            return "Camera trigger";
+        case 10:
+            return "Flag";
+        default:
+            return "Node";
+    }
+}
+
+const char* nodeCategoryDescription(uint8_t category) {
+    switch (category) {
+        case 3:
+            return "Touching this box warps Banjo. Its id picks the warp handler, which carries the destination map "
+                   "and entrance with it.";
+        case 4:
+            return "Touching this box fires a scripted trigger chosen by its id.";
+        case 6:
+            return "Spawns this actor where the node sits, facing its yaw. Radius and scale are free parameters the "
+                   "actor reads however it likes.";
+        case 7:
+            return "Enemies belonging to this zone won't move outside it. Overlapping boundaries with the same id "
+                   "form one zone.";
+        case 8:
+            return "A path control point. Its link ids chain it to the next node, and actors spawned on the chain "
+                   "follow the path they form.";
+        case 10:
+            return "Collectibles standing in this cylinder read its id to learn which save flag they set - a jiggy "
+                   "uses the id plus one, so moving one out of its volume changes what it records.";
+        default:
+            return nullptr;
+    }
+}
+
+const char* contactTriggerDetail(uint16_t id) {
+    if (id >= 0x16 && id <= 0x29) {
+        return "This id starts the area camera for one of the map's camera areas.";
+    }
+    if (id == 0x2A) {
+        return "This id ends the area camera, and is the most placed trigger in the game.";
+    }
+    if (id >= 0x46 && id <= 0x4B) {
+        return "This id is a treasure hunt step.";
+    }
+    if (id == 0x4C || id == 0x4D) {
+        return "This id is the Mumbo transformation boundary.";
+    }
+    return nullptr;
+}
+
 void lookVectors(float yawDeg, float pitchDeg, float outForward[3], float outRight[3]) {
     const float cosPitch = std::cos(pitchDeg * kDeg);
     outForward[0] = cosPitch * std::sin(yawDeg * kDeg);
@@ -261,19 +322,7 @@ void App::DrawLevelsPanel() {
             float bestVolume = 0.0f;
             float bestDist = 0.0f;
             for (const PickTarget& target : mPickTargets) {
-                float center[3], lo[3], hi[3];
-                float distSq = 0.0f;
-                for (int axis = 0; axis < 3; ++axis) {
-                    center[axis] = (target.min[axis] + target.max[axis]) * 0.5f;
-                    const float d = center[axis] - scene.eye[axis];
-                    distSq += d * d;
-                }
-                const float minHalf = std::sqrt(distSq) * tanHalf * (12.0f / viewH);
-                for (int axis = 0; axis < 3; ++axis) {
-                    lo[axis] = std::min(target.min[axis], center[axis] - minHalf);
-                    hi[axis] = std::max(target.max[axis], center[axis] + minHalf);
-                }
-                const float hit = rayHitsBox(scene.eye, dir, lo, hi);
+                const float hit = rayHitsBox(scene.eye, dir, target.min, target.max);
                 if (hit < 0.0f) {
                     continue;
                 }
@@ -285,6 +334,39 @@ void App::DrawLevelsPanel() {
                     bestVolume = volume;
                     bestDist = hit;
                     best = target.sel;
+                }
+            }
+
+            if (best < 0) {
+                const float allowed = 32.0f / viewH;
+                float bestOffset = 0.0f;
+                for (const PickTarget& target : mPickTargets) {
+                    float offset = 1e30f;
+                    for (int corner = 0; corner < 8; ++corner) {
+                        float toPoint[3];
+                        float along = 0.0f;
+                        for (int axis = 0; axis < 3; ++axis) {
+                            const float p = (corner & (1 << axis)) ? target.max[axis] : target.min[axis];
+                            toPoint[axis] = p - scene.eye[axis];
+                            along += toPoint[axis] * dir[axis];
+                        }
+                        if (along <= 1.0f) {
+                            continue;
+                        }
+                        float perpSq = 0.0f;
+                        for (int axis = 0; axis < 3; ++axis) {
+                            const float perp = toPoint[axis] - dir[axis] * along;
+                            perpSq += perp * perp;
+                        }
+                        offset = std::min(offset, std::sqrt(perpSq) / (along * tanHalf));
+                    }
+                    if (offset > allowed) {
+                        continue;
+                    }
+                    if (best < 0 || offset < bestOffset) {
+                        bestOffset = offset;
+                        best = target.sel;
+                    }
                 }
             }
             mPropSel = best;
@@ -647,12 +729,39 @@ void App::DrawSelectionProperties() {
         const char* actorName = isSpawn ? Lightbulb::ActorEnumName(node.id) : nullptr;
         ImGui::Text("Node #%d", mPropSel - propCount);
         ImGui::Separator();
-        ImGui::Text("Kind        : %s", isSpawn ? "Actor spawn" : "Node");
-        if (isSpawn) {
-            ImGui::Text("Actor       : %s", actorName ? actorName : "(unnamed)");
+        ImGui::Text("Category    : %s (%u)", nodeCategoryName(node.category), (unsigned)node.category);
+        if (node.category == 9) {
+            const Lightbulb::SetupCamera* target = nullptr;
+            for (const Lightbulb::SetupCamera& sc : mSetup.cameras) {
+                if (sc.index == (int)node.id) {
+                    target = &sc;
+                    break;
+                }
+            }
+            if (target) {
+                Lightbulb::ui::TextDisabledWrapped(
+                    "While Banjo stands in this box, Camera #%u (%s) takes over. It and this box share a color in "
+                    "the viewport.",
+                    node.id, camTypeName(target->type));
+            } else {
+                ImGui::TextColored(ImVec4(1.0f, 0.4f, 1.0f, 1.0f),
+                                   "Points at Camera #%u, which doesn't exist - free camera here", node.id);
+            }
+        } else if (const char* description = nodeCategoryDescription(node.category)) {
+            Lightbulb::ui::TextDisabledWrapped(description);
+            if (node.category == 4) {
+                if (const char* detail = contactTriggerDetail(node.id)) {
+                    Lightbulb::ui::TextDisabledWrapped(detail);
+                }
+            }
         }
         if (isSpawn) {
-            ImGui::Text("Id          : %X", node.id);
+            if (actorName) {
+                ImGui::Text("Actor       : %s", actorName);
+            } else {
+                ImGui::Text("Actor       : 0x%X (not in the actor enum)", node.id);
+            }
+            ImGui::Text("Id          : 0x%X", node.id);
         } else {
             ImGui::Text("Id          : %u (0x%X)", node.id, node.id);
         }
@@ -664,25 +773,6 @@ void App::DrawSelectionProperties() {
         const uint32_t modelAsset = isSpawn ? Lightbulb::ActorModelAsset(node.id) : 0;
         if (modelAsset) {
             ImGui::Text("Model asset : %s", assetFullName(mModelIndex, modelAsset).c_str());
-        }
-        ImGui::Text("Category    : %u", (unsigned)node.category);
-        if (node.category == 9) {
-            const Lightbulb::SetupCamera* target = nullptr;
-            for (const Lightbulb::SetupCamera& sc : mSetup.cameras) {
-                if (sc.index == (int)node.id) {
-                    target = &sc;
-                    break;
-                }
-            }
-            if (target) {
-                Lightbulb::ui::TextDisabledWrapped(
-                    "Camera trigger: while Banjo stands in this box, Camera #%u (%s) takes over. It and this box "
-                    "share a color in the viewport.",
-                    node.id, camTypeName(target->type));
-            } else {
-                ImGui::TextColored(ImVec4(1.0f, 0.4f, 1.0f, 1.0f),
-                                   "Camera trigger for #%u, which doesn't exist - free camera here", node.id);
-            }
         }
         ImGui::Text("Position    : %d, %d, %d", node.pos[0], node.pos[1], node.pos[2]);
         ImGui::Text("Radius      : %u", (unsigned)node.radius);
