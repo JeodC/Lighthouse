@@ -39,13 +39,19 @@ const char* EditorStandInModel(uint8_t category, uint32_t id) {
         case 3:
             return "editor/warp";
         case 4:
+            // A contact trigger's id picks its handler, so the marker follows the id
+            // rather than the category. 0x16-0x29 start the area camera for area
+            // (id - 0x16), which is defined by the 0xCC+area node below.
+            if (id >= 0x16 && id <= 0x29) {
+                return "editor/cam_start";
+            }
             if (id == 0x2A) {
                 return "editor/cam_end";
             }
             if (id == 0x4C || id == 0x4D) {
                 return "editor/magic_marker";
             }
-            return "editor/cam_start";
+            return nullptr;
         case 7:
             return "editor/enemy_marker";
         case 8:
@@ -60,15 +66,18 @@ const char* EditorStandInModel(uint8_t category, uint32_t id) {
         return "editor/entry";
     }
     switch (id) {
+        // 0x26 is the base of a climb; 0x27 and 0x28 are both tops, and the base
+        // takes whichever is nearest. Reaching a 0x28 top lets Banjo climb off.
         case 0x26:
-        case 0x27:
             return "editor/climb_start";
+        case 0x27:
         case 0x28:
             return "editor/climb_end";
         case 0x66:
             return "editor/cam_controller";
+        case 0x184:
         case 0x185:
-        case 0x19E:
+        case 0x186:
             return "editor/walkin";
         case 0x192:
             return "editor/reverb";
