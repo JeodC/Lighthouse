@@ -232,7 +232,7 @@ void drawBillboard(Gfx*& gfx, Vtx* verts, const SpriteBillboard& sprite, const f
     gDPSetTexturePersp(gfx++, G_TP_PERSP);
     gDPSetTextureFilter(gfx++, G_TF_BILERP);
     gDPSetCombineMode(gfx++, G_CC_DECALRGBA, G_CC_DECALRGBA);
-    gDPSetRenderMode(gfx++, G_RM_ZB_XLU_SURF, G_RM_ZB_XLU_SURF2);
+    gDPSetRenderMode(gfx++, G_RM_AA_ZB_TEX_EDGE, G_RM_AA_ZB_TEX_EDGE2);
     gSPTexture(gfx++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
     gDPSetTextureLUT(gfx++, sprite.tlut ? G_TT_RGBA16 : G_TT_NONE);
     gSPSegment(gfx++, 0x04, (void*)verts);
