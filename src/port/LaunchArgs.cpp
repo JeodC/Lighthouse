@@ -170,8 +170,13 @@ bool LaunchEditorIfRequested(int argc, char* argv[]) {
         return false;
     }
 
-    const std::filesystem::path editor = std::filesystem::path(Ship::Context::GetAppBundlePath()) / kEditorExecutable;
     std::error_code ec;
+    std::filesystem::path editor = std::filesystem::path(Ship::Context::GetAppBundlePath()) / kEditorExecutable;
+#ifdef __APPLE__
+    if (!std::filesystem::exists(editor, ec)) {
+        editor = std::filesystem::path(Ship::Context::GetAppBundlePath()).parent_path() / "MacOS" / kEditorExecutable;
+    }
+#endif
     if (!std::filesystem::exists(editor, ec)) {
         SetLaunchLog(true, "[Launch] --editor: Lightbulb was not found beside Lighthouse");
         return false;
