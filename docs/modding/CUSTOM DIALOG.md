@@ -84,7 +84,7 @@ Since the *actor's code* selects the variant, you can reword the candidates or t
 
 ## 4. Scripting gameplay: the trigger box
 
-The `0x07` box is the interesting one. When the conversation reaches it, nothing is displayed - instead the dialog system calls the **trigger callback** the actor registered when it opened the dialog, passing the box's first text byte as an **event id** ([dialog.c:434](../../src/core2/gc/dialog.c#L434)). The box then skips itself and the conversation continues.
+The `0x07` box is the interesting one. When the conversation reaches it, nothing is displayed. Instead the dialog system calls the **trigger callback** the actor registered when it opened the dialog, passing the box's first text byte as an **event id** ([dialog.c:434](../../src/core2/gc/dialog.c#L434)). The box then skips itself and the conversation continues.
 
 Blubber end to end:
 
@@ -94,12 +94,12 @@ Blubber end to end:
 
 So the jiggy pops **mid-sentence**, exactly where the writer placed the box. Move the `0x07` row and the spawn moves with it; delete it and the jiggy never appears; add a second and the spawn fires twice. (The variant dialog for when you've already collected the jiggy, `ASSET_A2A`, simply has no trigger box.)
 
-The **event id byte** is the actor's to interpret. Blubber ignores it - any trigger spawns his jiggy - but Bottles' molehills switch on it ([mole.c:201](../../src/core2/ch/mole.c#L201)): id `\x05` grants 50 eggs mid-lesson, `\x06` grants red feathers, `\x08` refills health, `\x01`-`\x04` move the tutorial camera.
+The **event id byte** is the actor's to interpret. Blubber ignores it; any trigger spawns his jiggy. Bottles' molehills switch on it ([mole.c:201](../../src/core2/ch/mole.c#L201)): id `\x05` grants 50 eggs mid-lesson, `\x06` grants red feathers, `\x08` refills health, `\x01`-`\x04` move the tutorial camera.
 
 Two rules keep expectations straight:
 
-- **A trigger is a request, not an opcode.** It does whatever the showing actor's callback does - there is no generic "spawn object" code, and a `0x07` box in a dialog whose actor registered no trigger callback does nothing.
-- **Skipping doesn't lose events.** If the player skips out of a dialog, every not-yet-reached trigger box fires anyway ([dialog.c:275](../../src/core2/gc/dialog.c#L275)) - so rewards can't be lost to the B button, and you can't hide "secret" triggers behind reading to the end.
+- **A trigger is a request, not an opcode.** It does whatever the showing actor's callback does. There is no generic "spawn object" code, and a `0x07` box in a dialog whose actor registered no trigger callback does nothing.
+- **Skipping doesn't lose events.** If the player skips out of a dialog, every not-yet-reached trigger box fires anyway ([dialog.c:275](../../src/core2/gc/dialog.c#L275)). Rewards can't be lost to the B button, and you can't hide "secret" triggers behind reading to the end.
 
 ---
 
@@ -117,7 +117,7 @@ Inside the text, any byte that isn't a glyph in the current font falls into a co
 
 Type them in **single-quoted** yaml (`'I FEEL \xFDhALL\xFDl FUNNY'`) - the importer decodes `\xNN` escapes there, while double quotes hand them to the yaml parser instead (see the [language guide's encoding notes](LANGUAGE%20PACKS.md#how-the-text-is-encoded)). Pauses, scroll speed, and line wrapping are *not* inline codes: punctuation pauses automatically, the player controls speed, and wrapping is automatic at 24 printable characters.
 
-Because the switch catches every non-glyph byte, a **bare lowercase** `b d e f h j l p q v` in dialog text executes its command without any `\xFD` - stock text is all-caps, so vanilla never trips this, but your edits can. Stick to uppercase (or a font that actually has lowercase glyphs, which makes those bytes ordinary letters again). The `\xFD`-prefixed form is always safe.
+Because the switch catches every non-glyph byte, a **bare lowercase** `b d e f h j l p q v` in dialog text executes its command without any `\xFD`. Stock text is all-caps, so vanilla never trips this, but your edits can. Stick to uppercase (or a font that actually has lowercase glyphs, which makes those bytes ordinary letters again). The `\xFD`-prefixed form is always safe.
 
 ---
 
@@ -144,7 +144,7 @@ The yaml doesn't say, and you need to know before you can rewrite a question. It
 
 **Quiz questions have one candidate, so `0x81` is always the correct answer.** `0x82` and `0x83` are the decoy pool and are always wrong. The example above bears that out - the first note door does cost 50 notes. All three still appear on screen every time; the shuffle only decides which line each one lands on.
 
-**Grunty questions have three candidates, so any of the three can be correct.** The save decides which: the first time Brentilda spawns in the lair she rolls a seed into the save file ([`brentilda.c:106`](../../src/lair/ch/brentilda.c#L106)), and every question's answer derives from it, fixed for that file from then on. That's the Brentilda mechanic: her gossip ([#3](#3-live-substitution)) is reading out the same value the boss will grade you against. Nothing in the asset marks the true one, so **a Grunty question's three options have to stay interchangeable**. Reword them freely, but don't write a set where one answer is obviously the real one - two thirds of the time the game will be looking for a different row.
+**Grunty questions have three candidates, so any of the three can be correct.** The save decides which. The first time Brentilda spawns in the lair she rolls a seed into the save file ([`brentilda.c:106`](../../src/lair/ch/brentilda.c#L106)), and every question's answer derives from it, fixed for that file from then on. That's the Brentilda mechanic: her gossip ([#3](#3-live-substitution)) is reading out the same value the boss will grade you against. Nothing in the asset marks the true one, so **a Grunty question's three options have to stay interchangeable**. Reword them freely, but don't write a set where one answer is obviously the real one. Two thirds of the time the game will be looking for a different row.
 
 ---
 

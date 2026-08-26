@@ -17,7 +17,7 @@ config:
     binary: bkes.o2r  # was bk.o2r; the pack's filename
 ```
 
-This is the one edit the pack flow makes to the base game's config, and it also redirects the normal game build - so **revert it once your pack is built**.
+This is the one edit the pack flow makes to the base game's config, and it also redirects the normal game build. So **revert it once your pack is built**.
 
 Now run the export:
 
@@ -58,7 +58,7 @@ lang/es/dialog/ASSET_A21_BLUBBER_MEET:
     - [0x4,  ""]
 ```
 
-Translate the quoted text and leave the control code alone - that leading byte chooses the speaker's portrait and box behaviour (`0x80`+ are portrait codes; small values like `0x4` are flow/clear markers), and retyping it by hand will desync the box. The full reference for what every code does - portraits, choices, live substitution, and the gameplay-trigger boxes - is [CUSTOM DIALOG.md](CUSTOM%20DIALOG.md). If your translation needs more or fewer boxes than the original, add or remove `[code, "text"]` rows freely; the importer recounts them for you.
+Translate the quoted text and leave the control code alone. That leading byte chooses the speaker's portrait and box behaviour (`0x80`+ are portrait codes; small values like `0x4` are flow/clear markers), and retyping it by hand will desync the box. The full reference for what every code does - portraits, choices, live substitution, and the gameplay-trigger boxes - is [CUSTOM DIALOG.md](CUSTOM%20DIALOG.md). If your translation needs more or fewer boxes than the original, add or remove `[code, "text"]` rows freely; the importer recounts them for you.
 
 That `+` in `COMPA+ERO` isn't a typo: the quoted text is **not** plain Unicode, it's a sequence of font-sheet slots. This pack draws the `+` slot as `Ñ`, so it renders as *COMPAÑERO*. The next section explains this properly.
 
@@ -83,7 +83,7 @@ One yaml hygiene rule: always put double quotes around your translations - an un
 
 ### How the text is encoded
 
-The quoted strings are sequences of **font-sheet slots**, not UTF-8. Every byte is an index into the game's font, so what you type is a *slot number*; it just happens to look like ASCII because the dialog font draws `A-Z`, `0-9`, and common punctuation in their ASCII positions. Type a literal `ñ` (UTF-8) into the yaml and you'll get garbage; you have to type the slot the font draws as `Ñ`.
+The quoted strings are sequences of **font-sheet slots**, not UTF-8. Every byte is an index into the game's font, so what you type is a *slot number*. It just happens to look like ASCII because the dialog font draws `A-Z`, `0-9`, and common punctuation in their ASCII positions. Type a literal `ñ` (UTF-8) into the yaml and you'll get garbage; you have to type the slot the font draws as `Ñ`.
 
 The dialog/quiz/grunty font (`0x6EB`) is a flat, contiguous sheet beginning at byte `0x21`. Byte `0x21` is the first glyph, `0x22` the second, and so on. The stock font holds 62 glyphs, so the reachable range is `0x21`-`0x5E`:
 
@@ -91,7 +91,7 @@ The dialog/quiz/grunty font (`0x6EB`) is a flat, contiguous sheet beginning at b
 ! " # $ % & ' ( ) * + , - . /   0-9   : ; < = > ? @   A-Z   [ \ ] ^
 ```
 
-The stock font holds only the ASCII set - `A-Z`, `0-9`, and punctuation. **None of Spanish's accents are in it**: `¡ ¿ Á É Í Ó Ú Ñ` all live in byte positions the stock font draws as ASCII symbols (`#`, `%`, `&`, ...). So each accent has to be **added** to the font, and you type it as whatever slot you put it in. Our Spanish pack repaints eight symbol slots - `#` `$` `%` `&` `(` `)` `*` `+` -> `¡` `¿` `Á` `É` `Í` `Ó` `Ú` `Ñ` (full table in [#5](#5-fonts-and-glyphs)). That's why `COMPA+ERO` renders *COMPAÑERO* (`+` = Ñ) and `$EST%S` renders *¿ESTÁS*. A `\xNN` escape works for any byte inside a **single-quoted** string (`'\xFD'` style - the importer decodes them, and it's the form the exporter itself emits for text carrying inline control codes). Use it for slots past `0x7E`, an extended sheet's high glyphs included; a literal backslash in such a string is `\\`. Don't put high escapes in *double*-quoted strings - there the yaml parser processes them itself, which is fine up to `\x7F` but re-encodes `\x80`-`\xFF` as two UTF-8 bytes, desyncing the text.
+The stock font holds only the ASCII set - `A-Z`, `0-9`, and punctuation. **None of Spanish's accents are in it**: `¡ ¿ Á É Í Ó Ú Ñ` all live in byte positions the stock font draws as ASCII symbols (`#`, `%`, `&`, ...). So each accent has to be **added** to the font, and you type it as whatever slot you put it in. Our Spanish pack repaints eight symbol slots - `#` `$` `%` `&` `(` `)` `*` `+` -> `¡` `¿` `Á` `É` `Í` `Ó` `Ú` `Ñ` (full table in [#5](#5-fonts-and-glyphs)). That's why `COMPA+ERO` renders *COMPAÑERO* (`+` = Ñ) and `$EST%S` renders *¿ESTÁS*. A `\xNN` escape works for any byte inside a **single-quoted** string (`'\xFD'` style - the importer decodes them, and it's the form the exporter itself emits for text carrying inline control codes). Use it for slots past `0x7E`, an extended sheet's high glyphs included; a literal backslash in such a string is `\\`. Don't put high escapes in *double*-quoted strings. There the yaml parser processes them itself, which is fine up to `\x7F` but re-encodes `\x80`-`\xFF` as two UTF-8 bytes, desyncing the text.
 
 The same goes for lowercase `a-z` and any non-Latin script - no stock glyph, so you add one. There are two ways to add glyphs, both covered in [#5 Fonts and glyphs](#5-fonts-and-glyphs):
 
@@ -123,7 +123,7 @@ Torch turns this into the `langinfo` manifest that Lighthouse reads to build its
 
 - **`name`** - what shows in the options menu. This label is drawn by the PC menu (not the in-game font), so the native spelling with real accents is fine here.
 - **`index`** - the language's slot; `0` for a single-language pack.
-- **`script`** - which of the game's two text paths to use. `0` (Latin) draws from the normal dialog/bold font sheets (`0x6EB`/`0x6EC`), which is what every Western release uses, so almost every pack - Spanish included - wants `0`. `1` (Japanese) switches to the path the original JP cartridge used: a separate dialog font (`0x6EA`) plus the kana file-select prompts, save-info line and parade, because there are far too many kanji to slot-map onto a Latin sheet. It also re-points the JP cartridge's own asset ids onto their canonical slots, so it's the setting for a pack built straight from a Japanese ROM. Only use `1` if your pack reuses that JP font - a `script: 1` pack missing `0x6EA` is rejected at load. It is **not** needed for [world-name banners](#world-name-banners); those work under `script: 0`.
+- **`script`** - which of the game's two text paths to use. `0` (Latin) draws from the normal dialog/bold font sheets (`0x6EB`/`0x6EC`), which is what every Western release uses, so almost every pack - Spanish included - wants `0`. `1` (Japanese) switches to the path the original JP cartridge used: a separate dialog font (`0x6EA`) plus the kana file-select prompts, save-info line and parade. There are far too many kanji to slot-map onto a Latin sheet. It also re-points the JP cartridge's own asset ids onto their canonical slots, so it's the setting for a pack built straight from a Japanese ROM. Only use `1` if your pack reuses that JP font - a `script: 1` pack missing `0x6EA` is rejected at load. It is **not** needed for [world-name banners](#world-name-banners); those work under `script: 0`.
 - **`region`** (optional) - the folder your assets live under inside the finished `.o2r` (`lang/<region>/`). Defaults to the cartridge region; we set `es` so a Spanish pack doesn't collide with others.
 - **`strings`** (optional) - translations for hardcoded UI text the asset pipeline can't reach; see the next section.
 
@@ -197,7 +197,7 @@ strings:
 
 ...which produces `PARTIDA 1: TIEMPO 0:12:34,` / `5 PIEZAS, 100 NOTAS`.
 
-One limit comes with this approach: **word order is fixed by the engine.** The number always precedes its noun and the prefix always precedes the game number, so a language that needs the count *after* the noun can't reorder it here. The numbers and the clock are rendered by the engine and aren't translatable - only the words around them are. And the rebuild only happens for a pack that actually supplies these `strings:`; a base US/PAL game keeps its own built-in line.
+One limit comes with this approach: **word order is fixed by the engine.** The number always precedes its noun and the prefix always precedes the game number. A language that needs the count *after* the noun can't reorder it here. The numbers and the clock are rendered by the engine and aren't translatable - only the words around them are. And the rebuild only happens for a pack that actually supplies these `strings:`; a base US/PAL game keeps its own built-in line.
 
 ### Pack mode
 
@@ -211,7 +211,7 @@ The `dialog_pack: true` flag was already set back in [step 1](#1-export-the-text
 torch modding import o2r <baserom.z64> -s <lighthouse> -d <workdir>
 ```
 
-The importer walks the asset list: your edited yamls are re-encoded from `<workdir>`, everything else parses straight from the ROM, and `dialog_pack` strips the result down to the language assets plus `langinfo`. The finished pack lands in **`<workdir>/mods/~lang/`** automatically, named from your `output.binary` - `bkes.o2r` in our case. Copy that into Lighthouse's `mods/~lang/` folder and it shows up in the options menu.
+The importer walks the asset list: your edited yamls are re-encoded from `<workdir>`, everything else parses straight from the ROM. `dialog_pack` then strips the result down to the language assets plus `langinfo`. The finished pack lands in **`<workdir>/mods/~lang/`** automatically, named from your `output.binary` - `bkes.o2r` in our case. Copy that into Lighthouse's `mods/~lang/` folder and it shows up in the options menu.
 
 ---
 
@@ -233,9 +233,9 @@ The stock font has none of Spanish's accents, so our pack repaints eight unused 
 | Type as | `#` | `$` | `%` | `&` | `(` | `)` | `*` | `+` |
 | Slot    |`0x23`|`0x24`|`0x25`|`0x26`|`0x28`|`0x29`|`0x2A`|`0x2B`|
 
-Each repainted glyph is just a base letter with an accent added - `Á` is the `A` glyph with an acute stroke, `Ñ` is `N` with a tilde, `¿` is the `?` glyph flipped, and so on. That's why the strings above read `$EST%S SEGURO?` (`¿ESTÁS SEGURO?`) - each accented letter is the symbol slot whose glyph we redrew. A pack for a whole new alphabet would instead *extend* the sheet (add glyphs past `0x5E`), as described in [#2's encoding notes](#how-the-text-is-encoded); a Russian pack, for instance, draws the full Cyrillic set into new slots rather than repainting a handful.
+Each repainted glyph is just a base letter with an accent added - `Á` is the `A` glyph with an acute stroke, `Ñ` is `N` with a tilde, `¿` is the `?` glyph flipped, and so on. That's why the strings above read `$EST%S SEGURO?` (`¿ESTÁS SEGURO?`) - each accented letter is the symbol slot whose glyph we redrew. A pack for a whole new alphabet would instead *extend* the sheet (add glyphs past `0x5E`), as described in [#2's encoding notes](#how-the-text-is-encoded). A Russian pack, for instance, draws the full Cyrillic set into new slots rather than repainting a handful.
 
-The swap is live: glyphs apply both when the pack is chosen at boot and when you switch to it from the options menu, because the runtime re-decodes the font slots on every language change (and picks up an extended sheet's larger glyph count at the same time). Switching back to a built-in language restores the originals.
+The swap is live: glyphs apply both when the pack is chosen at boot and when you switch to it from the options menu. The runtime re-decodes the font slots on every language change, and picks up an extended sheet's larger glyph count at the same time. Switching back to a built-in language restores the originals.
 
 Everything you replace here is **SD**. High-resolution versions are a separate, optional layer built with Retro - see [TEXTURE PACKS.md](TEXTURE%20PACKS.md); an HD sheet ships at `alt/assets/lang/<region>/...` and composes on top of your SD pack automatically.
 
@@ -243,7 +243,7 @@ Everything you replace here is **SD**. High-resolution versions are a separate, 
 
 ## 6. Region-only content (additive assets)
 
-A little text exists in the PAL/JP versions but **not** in US v1.0, so the US export has no file for it. The clearest case is the **Motzand parade credit** (canonical dialog `0x11CA`): PAL and JP move Motzand into the Furnace-Fun parade, and the dialog shown in his slot is the game's *localization-team credit* - the heading "WORD SWOPPING" followed by the translators' names. US v1.0 never had that slot, so it never populates that dialog: its parade-credit dialogs run contiguously from `0x11AF` to `0x11C9`, and `0x11CA` is simply the first empty id past the end. That empty slot is what your pack fills. (PAL/JP keep the same credit at their own ids - PAL `0xBF9`, for instance - and the language system re-points `0x11CA` to it on those bases.)
+A little text exists in the PAL/JP versions but **not** in US v1.0, so the US export has no file for it. The clearest case is the **Motzand parade credit** (canonical dialog `0x11CA`). PAL and JP move Motzand into the Furnace-Fun parade, and the dialog shown in his slot is the game's *localization-team credit* - the heading "WORD SWOPPING" followed by the translators' names. US v1.0 never had that slot, so it never populates that dialog. Its parade-credit dialogs run contiguously from `0x11AF` to `0x11C9`, and `0x11CA` is simply the first empty id past the end. That empty slot is what your pack fills. (PAL/JP keep the same credit at their own ids - PAL `0xBF9`, for instance - and the language system re-points `0x11CA` to it on those bases.)
 
 You can still ship that content by declaring it as an **additive** asset - a slot the base ROM leaves empty that your pack fills:
 
@@ -268,7 +268,7 @@ You can still ship that content by declaring it as an **additive** asset - a slo
 
 On import, `dialog_pack` scans your `modding.yml` for any `lang/<region>/{dialog,quizq,gruntyq,sprite}/ASSET_<id>` the base table didn't provide and folds it into the pack. Use the **canonical (v1.0) id** for the slot (`0x11CA` for the Motzand credit) no matter which region your base ROM is.
 
-This matters for the parade because Lighthouse keys the alternate (PAL/JP-style) parade on the *presence* of `0x11CA` in the active pack, not on the base version. A player on a plain US v1.0 `bk.o2r` who loads a pack that supplies `0x11CA` gets the Motzand parade order **and** the translated credit, while the rest of the game keeps using US assets. Cover `0x11CA` and the parade switches; omit it and the US parade is left untouched.
+This matters for the parade because Lighthouse keys the alternate (PAL/JP-style) parade on the *presence* of `0x11CA` in the active pack, not on the base version. A player on a plain US v1.0 `bk.o2r` who loads a pack that supplies `0x11CA` gets the Motzand parade order **and** the translated credit. The rest of the game keeps using US assets. Cover `0x11CA` and the parade switches; omit it and the US parade is left untouched.
 
 ### World-name banners
 
@@ -329,7 +329,7 @@ Copy that verbatim for every banner; only the name changes. `{X: 0, Y: 0}` is wh
   assets/lang/es/sprite/ASSET_1600_WORLD_NAME_TOTAL_0_0: assets/lang/es/sprite/ASSET_1600_WORLD_NAME_TOTAL_0_0.rgba32.png
 ```
 
-The yaml's top-level key, both `modding.yml` keys and the PNG's `_0_0` stem all have to spell the name the same way, and `lang/<region>/` has to match the `region` from your `langinfo.yml`.
+The yaml's top-level key, both `modding.yml` keys and the PNG's `_0_0` stem all have to spell the name the same way. And `lang/<region>/` has to match the `region` from your `langinfo.yml`.
 
 The fill is declared the same way, but as RGBA16, so `FormatCode: 1024`:
 

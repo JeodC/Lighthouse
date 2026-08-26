@@ -1,6 +1,6 @@
 # Making an Animation Mod
 
-The *Fast Swim* Banjo-Tooie backport was created by creating modified animation data and pointing the game to said data when both A and B are held while swimming. It's a good example because it's easy to demonstrate in Lighthouse and it's half of a *combined animation set*: all it does is overlay Banjo's leg bone kicks onto Kazooie's wing stroke. Here's how it's done.
+The *Fast Swim* Banjo-Tooie backport was created by creating modified animation data and pointing the game to said data when both A and B are held while swimming. It's a good example: easy to demonstrate in Lighthouse, and half of a *combined animation set*. All it does is overlay Banjo's leg bone kicks onto Kazooie's wing stroke. Here's how it's done.
 
 This guide edits the keyframes as YAML, which is the direct route and the one that shows you the format. If you'd rather pose a rig, the Fast64 BK64 plugin reads an animation onto an armature and writes one back out - see [CUSTOM MODELS.md #3](CUSTOM%20MODELS.md#3-building-a-model). Both roads end at the same file, so the bone id rules in [#2](#2-the-keyframe-format) hold either way.
 
@@ -57,15 +57,15 @@ ASSET_71_BSSWIM_DIVE_SLOW:
 | 3 / 4 / 5 | scale X / Y / Z | `value / 64` = factor (so `64` = 1.0) |
 | 6 / 7 / 8 | translation X / Y / Z | `value / 64` x the model's animation scale = world units |
 
-Each **`Data`** row is one keyframe: `[smooth, smooth, frame, value]`. Frames run from `StartFrame` to `EndFrame`; the two leading flags control keyframe smoothing - the game uses `1, 1` (smooth interpolation) on virtually every key, and you should keep them for new keys too. Between keyframes the game interpolates; channels you don't supply sit at their defaults (rotation 0, scale 1.0, translation 0).
+Each **`Data`** row is one keyframe: `[smooth, smooth, frame, value]`. Frames run from `StartFrame` to `EndFrame`. The two leading flags control keyframe smoothing: the game uses `1, 1` (smooth interpolation) on virtually every key, and you should keep them for new keys too. Between keyframes the game interpolates; channels you don't supply sit at their defaults (rotation 0, scale 1.0, translation 0).
 
-Read the bone-20 element above with the table: it's rotation Y, swinging from `630` down to `-5715` and back across the 40-frame cycle. Note that the playback *speed* isn't in this file: the game maps the frame range onto however long the action lasts, so keyframe positions set the motion's rhythm within the cycle, not its duration.
+Read the bone-20 element above with the table: it's rotation Y, swinging from `630` down to `-5715` and back across the 40-frame cycle. The playback *speed* isn't in this file. The game maps the frame range onto however long the action lasts, so keyframe positions set the motion's rhythm within the cycle, not its duration.
 
 Three rules the engine enforces:
 
-- **Keep one bone's elements contiguous.** The player walks the list accumulating channels and applies them when the bone id *changes* - interleaving bones (6, 20, 6) silently mangles the result. Export order is always grouped; preserve it when adding elements.
-- **Bone id 0 is reserved, and ids stop at `0x6C`.** The player starts out holding id 0 and skips it when an id change flushes a finished bone ([`anim_bonetransform.c:69`](../../src/core2/anim/anim_bonetransform.c#L69)), which is why every skeleton numbers its bones from 1. At the other end the transform list is a fixed `0x6D` entries ([`bonetransformlist.c:58`](../../src/core2/anim/bonetransformlist.c#L58)) and nothing checks an id against it. Neither end errors; the animation just doesn't move what you meant.
-- **Don't retype ids you don't know.** Bone ids come from the model being animated. You learn them from code that already uses them, or by nudging one channel at a time. For Banjo's skeleton, [`FastSwim.cpp`](../../src/port/Enhancements/Backports/FastSwim.cpp) documents the leg chains outright: **right leg `6, 7, 10, 12, 14`, left leg `20, 21, 24, 26, 28`**, with 14 and 28 the feet. And ids are per-model: the same numbers mean different limbs on a different skeleton, which is why a straight model swap T-poses - see the Jinjo experiment in [CUSTOM MODELS.md #2](CUSTOM%20MODELS.md#2-wiring-a-model-into-the-game).
+- **Keep one bone's elements contiguous.** The player walks the list accumulating channels and applies them when the bone id *changes*. Interleaving bones (6, 20, 6) silently mangles the result. Export order is always grouped; preserve it when adding elements.
+- **Bone id 0 is reserved, and ids stop at `0x6C`.** The player starts out holding id 0 and skips it when an id change flushes a finished bone ([`anim_bonetransform.c:69`](../../src/core2/anim/anim_bonetransform.c#L69)). That is why every skeleton numbers its bones from 1. At the other end the transform list is a fixed `0x6D` entries ([`bonetransformlist.c:58`](../../src/core2/anim/bonetransformlist.c#L58)) and nothing checks an id against it. Neither end errors; the animation just doesn't move what you meant.
+- **Don't retype ids you don't know.** Bone ids come from the model being animated. You learn them from code that already uses them, or by nudging one channel at a time. For Banjo's skeleton, [`FastSwim.cpp`](../../src/port/Enhancements/Backports/FastSwim.cpp) documents the leg chains outright: **right leg `6, 7, 10, 12, 14`, left leg `20, 21, 24, 26, 28`**, with 14 and 28 the feet. And ids are per-model. The same numbers mean different limbs on a different skeleton, which is why a straight model swap T-poses; see the Jinjo experiment in [CUSTOM MODELS.md #2](CUSTOM%20MODELS.md#2-wiring-a-model-into-the-game).
 
 ---
 

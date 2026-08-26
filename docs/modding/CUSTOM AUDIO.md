@@ -82,7 +82,7 @@ sfx/0C2_GRUBLIN_EGH envelope fitted to the new sample -- DecayTime 231811 -> 311
 
 ### Working it out yourself
 
-You need this if you are hand-building a sample (#8) or overriding the fit. Envelope times are stored *unpitched*: the game divides them by the slot's pitch ratio when it plays, the same ratio it applies to the sample, so the two stay in step.
+You need this if you are hand-building a sample (#8) or overriding the fit. Envelope times are stored *unpitched*. The game divides them by the slot's pitch ratio when it plays, the same ratio it applies to the sample, so the two stay in step.
 
 ```
 total microseconds = clip_seconds x 1,000,000 x pitch
@@ -171,7 +171,7 @@ u8   data[dataSize]     the ADPCM frames
 ```
 
 - **`dataSize` must be a whole number of nine-byte frames.** Pad with silence rather than leaving a partial frame.
-- **The codebook has to suit your sample.** Reusing the one from the sound you are replacing predicts your audio badly and spends the 4-bit residual range on error, which is audible as roughness.
+- **The codebook has to suit your sample.** Reusing the one from the sound you are replacing predicts your audio badly. It spends the 4-bit residual range on error, which is audible as roughness.
 
 ---
 
@@ -209,13 +209,13 @@ Mumbo's Mountain, for example:
 | Outside Mumbo's hut | 6, 7, 12, 13, 15 |
 | Underwater | 9 |
 
-Rare wrote channels 0-5 as a self-contained arrangement (drumkit, marimba, bassoon, trombone, bass, clarinet) and reserved the rest for the zone variations: taiko and shakers for Conga and Mumbo areas, snare rolls and "hups" for Ticker's Tower, a harp for underwater. Channel 12 (bird calls) is in every surface zone, so it is the one channel always audible.
+Rare wrote channels 0-5 as a self-contained arrangement (drumkit, marimba, bassoon, trombone, bass, clarinet). The rest were reserved for the zone variations: taiko and shakers for Conga and Mumbo areas, snare rolls and "hups" for Ticker's Tower, a harp for underwater. Channel 12 (bird calls) is in every surface zone, so it is the one channel always audible.
 
 **Put your arrangement on the channels the map's main zone plays**, and use the others only for material meant for those specific places. 46 of the game's maps gate music this way; where a map defines no zones, all sixteen channels play all the time.
 
 ## 11. Instruments
 
-A program change selects one of Banjo's own 85 instruments. **These are not General MIDI numbers.** A file written against a GM soundfont will point most channels at the wrong instrument, and any program above 85 is skipped by the player, so those channels go silent.
+A program change selects one of Banjo's own 85 instruments. **These are not General MIDI numbers.** A file written against a GM soundfont will point most channels at the wrong instrument. Any program above 85 is skipped by the player, so those channels go silent.
 
 Some example instruments in your `bk.o2r`:
 
@@ -281,7 +281,7 @@ Useful for judging whether a track will sit right before you build anything. Med
 | CC7, mean | 86 | 80-86 |
 | instruments used | 6 | 6-8 |
 
-The synth has **24 voices**. Loud comes from density rather than level: a thin arrangement pinned to velocity 127 still sounds quieter than a full one at velocity 90, and pinning it destroys the dynamics as well.
+The synth has **24 voices**. Loud comes from density rather than level: a thin arrangement pinned to velocity 127 still sounds quieter than a full one at velocity 90. Pinning it destroys the dynamics as well.
 
 Resolution is unconstrained. Save as **SMF format 0 or 1**; format 2 is not supported, and neither is SMPTE timing.
 
