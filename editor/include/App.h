@@ -36,6 +36,7 @@ struct Config {
 };
 bool LoadConfig(Config& out);
 bool SaveConfig(const Config& cfg);
+bool LaunchLighthouse(std::string& outError);
 bool OpenFileDialog(const char* title, const std::vector<Ship::FileFilter>& filters, std::string& outPath);
 bool SaveFileDialog(const char* title, const std::vector<Ship::FileFilter>& filters, const std::string& defaultName,
                     std::string& outPath);
@@ -75,6 +76,8 @@ private:
     void ResumeLevelMusic();
     void EnsureAssetIndexes();
     void FrameEyeAtEntry(const Lightbulb::SetupNode& node);
+    void FocusSelection();
+    bool SelectionFocusTarget(float outCenter[3], float& outRadius) const;
     void DrawReloadOffer();
     void DrawPreferences();
     void DrawCredits();
@@ -93,6 +96,8 @@ private:
     bool mFreshLayout = false;
 
     bool mO2rLoaded = false;
+    bool mAwaitingExtraction = false;
+    double mNextArchivePoll = 0.0;
     std::string mO2rPath;
     std::string mAdjacentO2rPath;
     std::string mRomhackPath;
@@ -189,6 +194,8 @@ private:
     LevelScene mLevelScene;
     Lightbulb::SetupScene mSetup;
     int mPropSel = -1;
+    bool mScrollToSel = false;
+    int mRevealTab = -1;
     struct PickTarget {
         int sel = -1;
         float min[3] = { 0, 0, 0 };

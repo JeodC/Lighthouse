@@ -13,6 +13,7 @@ extern "C" {
 #include <libultraship/controller/controldeck/ControlDeck.h>
 #include <libultraship/libultraship.h>
 #include <ship/Context.h>
+#include <ship/config/Config.h>
 #include <ship/config/ConsoleVariable.h>
 #include <ship/resource/ResourceManager.h>
 
@@ -32,6 +33,11 @@ int main(int, char**) {
     ctx->InitConfiguration();
     ctx->InitConsoleVariables();
     ctx->GetConsoleVariables()->SetInteger("gEnableMultiViewports", 0);
+    if (auto config = ctx->GetConfig(); config && !config->Contains("Window.Width")) {
+        config->SetInt("Window.Width", 1280);
+        config->SetInt("Window.Height", 720);
+        config->Save();
+    }
     ctx->InitResourceManager({ "lighthouse.o2r" }, {}, 1, true);
     if (auto resources = ctx->GetResourceManager(); !resources || !resources->IsLoaded()) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lightbulb", "Couldn't load lighthouse.o2r.", nullptr);

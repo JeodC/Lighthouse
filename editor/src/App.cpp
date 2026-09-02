@@ -132,10 +132,11 @@ void App::EnforceDefaultLayout() {
 
     const ImGuiID dockId = ImHashStr("main_dock", 0, ImHashStr("Main - Deck"));
     if (!mFreshLayout) {
+        // Older layouts pinned the prompt into the toolbar strip, which is sized for one
+        // row and clipped it. Float it back out.
         const ImGuiWindow* offer = ImGui::FindWindowByName("Open bk.o2r");
-        const ImGuiDockNode* root = ImGui::DockBuilderGetNode(dockId);
-        if (offer && offer->DockId == 0 && root && root->ChildNodes[0]) {
-            ImGui::DockBuilderDockWindow("Open bk.o2r", root->ChildNodes[0]->ID);
+        if (offer && offer->DockId != 0) {
+            ImGui::DockBuilderDockWindow("Open bk.o2r", 0);
             ImGui::DockBuilderFinish(dockId);
         }
         return;
@@ -151,7 +152,8 @@ void App::EnforceDefaultLayout() {
     const ImGuiID left = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.142f, nullptr, &center);
     const ImGuiID rightTop = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.198f, nullptr, &right);
 
-    ImGui::DockBuilderDockWindow("Open bk.o2r", top);
+    // The prompt stays floating: a dock node can't size itself to its content, and the top
+    // strip is sized for the one-row toolbar that lives there once an archive is open.
     ImGui::DockBuilderDockWindow("Controls", top);
     ImGui::DockBuilderDockWindow("Levels", left);
     ImGui::DockBuilderDockWindow("Layers", rightTop);

@@ -178,6 +178,72 @@ void App::FrameEyeAtEntry(const Lightbulb::SetupNode& node) {
     mLevelScene.pitch = 0.0f;
 }
 
+bool App::SelectionFocusTarget(float outCenter[3], float& outRadius) const {
+    if (mPropSel < 0) {
+        return false;
+    }
+
+    // Prefer what the renderer actually drew
+    for (const PickTarget& target : mPickTargets) {
+        if (target.sel != mPropSel) {
+            continue;
+        }
+        float diagonal = 0.0f;
+        for (int axis = 0; axis < 3; ++axis) {
+            outCenter[axis] = (target.min[axis] + target.max[axis]) * 0.5f;
+            const float extent = target.max[axis] - target.min[axis];
+            diagonal += extent * extent;
+        }
+        outRadius = std::sqrt(diagonal) * 0.5f;
+        return true;
+    }
+
+    // Nothing was drawn for it this frame - hidden layer, culled, or past the pool limit.
+    // The setup still knows where it sits.
+    const int propCount = (int)mSetup.props.size();
+    const int nodeCount = (int)mSetup.nodes.size();
+    if (mPropSel < propCount) {
+        const Lightbulb::SetupProp& prop = mSetup.props[mPropSel];
+        for (int axis = 0; axis < 3; ++axis) {
+            outCenter[axis] = (float)prop.pos[axis];
+        }
+    } else if (mPropSel < propCount + nodeCount) {
+        const Lightbulb::SetupNode& node = mSetup.nodes[mPropSel - propCount];
+        for (int axis = 0; axis < 3; ++axis) {
+            outCenter[axis] = (float)node.pos[axis];
+        }
+    } else if (mPropSel < propCount + nodeCount + (int)mSetup.cameras.size()) {
+        const Lightbulb::SetupCamera& camera = mSetup.cameras[mPropSel - propCount - nodeCount];
+        for (int axis = 0; axis < 3; ++axis) {
+            outCenter[axis] = camera.pos[axis];
+        }
+    } else {
+        return false;
+    }
+    outRadius = 0.0f;
+    return true;
+}
+
+void App::FocusSelection() {
+    float center[3];
+    float radius = 0.0f;
+    if (!SelectionFocusTarget(center, radius)) {
+        return;
+    }
+    // Keep the current heading and only dolly, so focusing reads as travelling to the
+    // object rather than being spun around to face it.
+    float forward[3], right[3];
+    lookVectors(mLevelScene.yaw, mLevelScene.pitch, forward, right);
+    float distance = radius / std::tan(kLevelFovYDeg * 0.5f * kDeg) * 1.6f;
+    if (distance < 150.0f) {
+        distance = 150.0f;
+    }
+    for (int axis = 0; axis < 3; ++axis) {
+        mLevelScene.eye[axis] = center[axis] - forward[axis] * distance;
+    }
+    mLevelScene.framed = true;
+}
+
 void App::DrawLevelsPanel() {
     if (!ImGui::Begin("Levels")) {
         ImGui::End();
@@ -267,11 +333,11 @@ void App::DrawLevelsPanel() {
     }
 
     if (ImGui::BeginTabBar("##lefttabs")) {
-        if (ImGui::BeginTabItem("Objects")) {
+        if (ImGui::BeginTabItem("Objects", nullptr, mRevealTab == 0 ? ImGuiTabItemFlags_SetSelected : 0)) {
             DrawObjectsTab();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Cameras")) {
+        if (ImGui::BeginTabItem("Cameras", nullptr, mRevealTab == 1 ? ImGuiTabItemFlags_SetSelected : 0)) {
             DrawCamerasTab();
             ImGui::EndTabItem();
         }
@@ -281,6 +347,10 @@ void App::DrawLevelsPanel() {
         }
         ImGui::EndTabBar();
     }
+    // The viewport pick below runs after the lists, so a reveal it asks for is consumed on
+    // the next frame; clear it here once they have had their chance.
+    mScrollToSel = false;
+    mRevealTab = -1;
 
     if (scene.sel >= 0 && scene.framed) {
         ImGuiIO& io = ImGui::GetIO();
@@ -369,6 +439,10 @@ void App::DrawLevelsPanel() {
                     }
                 }
             }
+            if (best >= 0) {
+                mScrollToSel = true;
+                mRevealTab = best >= (int)mSetup.props.size() + (int)mSetup.nodes.size() ? 1 : 0;
+            }
             mPropSel = best;
         }
         if (scene.looking && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
@@ -397,6 +471,8 @@ void App::DrawLevelsPanel() {
                 scene.eye[1] += step;
             if (ImGui::IsKeyDown(ImGuiKey_Q))
                 scene.eye[1] -= step;
+            if (ImGui::IsKeyPressed(ImGuiKey_F))
+                FocusSelection();
         }
     }
 
@@ -428,8 +504,15 @@ void App::DrawObjectsTab() {
                 ImGui::TableNextColumn();
                 char sel[32];
                 std::snprintf(sel, sizeof(sel), "%d##prop%d", row, row);
-                if (ImGui::Selectable(sel, row == mPropSel, ImGuiSelectableFlags_SpanAllColumns)) {
+                if (ImGui::Selectable(sel, row == mPropSel,
+                                      ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
                     mPropSel = row;
+                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        FocusSelection();
+                    }
+                }
+                if (mScrollToSel && row == mPropSel) {
+                    ImGui::SetScrollHereY(0.5f);
                 }
                 ImGui::TableNextColumn();
                 ImGui::TextDisabled(prop.type == 2 ? "model" : prop.type == 0 ? "sprite" : "actor");
@@ -461,8 +544,15 @@ void App::DrawObjectsTab() {
                 ImGui::TableNextColumn();
                 char sel[32];
                 std::snprintf(sel, sizeof(sel), "%d##node%d", row, nodeRow);
-                if (ImGui::Selectable(sel, row == mPropSel, ImGuiSelectableFlags_SpanAllColumns)) {
+                if (ImGui::Selectable(sel, row == mPropSel,
+                                      ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
                     mPropSel = row;
+                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        FocusSelection();
+                    }
+                }
+                if (mScrollToSel && row == mPropSel) {
+                    ImGui::SetScrollHereY(0.5f);
                 }
                 ImGui::TableNextColumn();
                 ImGui::TextDisabled(node.category == 6 ? "spawn" : "node");
@@ -502,8 +592,15 @@ void App::DrawCamerasTab() {
                 ImGui::TableNextColumn();
                 char sel[32];
                 std::snprintf(sel, sizeof(sel), "%d##cam%d", (int)c.index, row);
-                if (ImGui::Selectable(sel, row == mPropSel, ImGuiSelectableFlags_SpanAllColumns)) {
+                if (ImGui::Selectable(sel, row == mPropSel,
+                                      ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
                     mPropSel = row;
+                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        FocusSelection();
+                    }
+                }
+                if (mScrollToSel && row == mPropSel) {
+                    ImGui::SetScrollHereY(0.5f);
                 }
                 ImGui::TableNextColumn();
                 ImGui::TextDisabled("%s (%u)", camTypeName(c.type), (unsigned)c.type);
@@ -553,8 +650,15 @@ void App::DrawPathsTab() {
                 ImGui::TableNextColumn();
                 char sel[32];
                 std::snprintf(sel, sizeof(sel), "%d##path%d", idx, idx);
-                if (ImGui::Selectable(sel, row == mPropSel, ImGuiSelectableFlags_SpanAllColumns)) {
+                if (ImGui::Selectable(sel, row == mPropSel,
+                                      ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
                     mPropSel = row;
+                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        FocusSelection();
+                    }
+                }
+                if (mScrollToSel && row == mPropSel) {
+                    ImGui::SetScrollHereY(0.5f);
                 }
                 ImGui::TableNextColumn();
                 ImGui::Text("%u", (unsigned)nd.pathUid);
@@ -588,7 +692,7 @@ void App::DrawToolbar() {
         return;
     }
     ImGui::AlignTextToFramePadding();
-    ImGui::TextDisabled("Fly: WASD / QE, left-drag to look, right-click to select");
+    ImGui::TextDisabled("Fly: WASD / QE, left-drag to look, right-click to select, F to focus it");
     ImGui::SameLine(ImGui::GetWindowWidth() - 270.0f);
     ImGui::SetNextItemWidth(150.0f);
     int moveSpeed = (int)(mConfig.cameraSpeed / 10.0f + 0.5f) * 10;

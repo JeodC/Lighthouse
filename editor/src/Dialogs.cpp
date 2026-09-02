@@ -21,6 +21,26 @@ void App::DrawReloadOffer() {
     if (mO2rLoaded) {
         return;
     }
+
+    // Lighthouse writes bk.o2r beside itself, which is beside us. Poll rather than wait on
+    // the process: the archive can also arrive from a Torch run in another window.
+    if (mAwaitingExtraction) {
+        const double now = ImGui::GetTime();
+        if (now >= mNextArchivePoll) {
+            mNextArchivePoll = now + 1.0;
+            std::error_code pollErr;
+            const std::string produced = Ship::Context::GetPathRelativeToAppBundle("bk.o2r");
+            if (std::filesystem::exists(produced, pollErr)) {
+                if (OpenO2rPath(produced)) {
+                    mAwaitingExtraction = false;
+                    return;
+                }
+                // Most likely still being written; try again on the next poll.
+                mStatus = "Waiting for Lighthouse to finish writing bk.o2r...";
+            }
+        }
+    }
+
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(540, 0), ImGuiCond_Appearing);
@@ -47,6 +67,27 @@ void App::DrawReloadOffer() {
     if (!offered.empty()) {
         ImGui::TextDisabled("%s", offered.c_str());
     }
+
+    ImGui::Separator();
+    if (mAwaitingExtraction) {
+        ImGui::TextWrapped("Lighthouse is running. Extract your ROM there and the archive opens here by itself.");
+        if (ImGui::Button("Stop waiting")) {
+            mAwaitingExtraction = false;
+        }
+    } else {
+        ImGui::TextWrapped("Don't have one? Lighthouse builds a bk.o2r from your ROM.");
+        if (ImGui::Button("Generate with Lighthouse...")) {
+            std::string error;
+            if (Lightbulb::LaunchLighthouse(error)) {
+                mAwaitingExtraction = true;
+                mNextArchivePoll = 0.0;
+                mStatus = "Launched Lighthouse - extract your ROM there.";
+            } else {
+                mStatus = error;
+            }
+        }
+    }
+
     if (!mStatus.empty()) {
         ImGui::Spacing();
         ImGui::TextColored(ImVec4(0.95f, 0.55f, 0.4f, 1.0f), "%s", mStatus.c_str());
