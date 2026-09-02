@@ -39,6 +39,38 @@ namespace Lightbulb {
 namespace {
 SetupScene* sFillScene = nullptr;
 
+// A waypoint reuses the 20-byte node slot as a float and four big-endian words.
+// Rebuild the words, then split them per Struct_glspline_t1.
+void decodeScriptLeg(const NodeProp* node, SetupNode& out) {
+    const uint32_t word0 = ((uint32_t)(uint16_t)node->x << 16) | (uint16_t)node->y;
+    const uint32_t word1 = ((uint32_t)(uint16_t)node->z << 16) | ((uint32_t)(node->radius & 0x1FF) << 7) |
+                           ((uint32_t)(node->bit6 & 0x3F) << 1) | (node->bit0 & 1);
+    const uint32_t word2 = ((uint32_t)node->unk8 << 16) | ((uint32_t)node->unkA << 8) | node->padB;
+    const uint32_t word3 = ((uint32_t)(node->yaw & 0x1FF) << 23) | (node->scale & 0x7FFFFF);
+
+    std::memcpy(&out.legFraction, &word0, sizeof(out.legFraction));
+
+    out.legLinkUid = (uint16_t)((word1 >> 20) & 0xFFF);
+    out.legModeBits = (uint8_t)((word1 >> 18) & 3);
+    out.legBlend = (uint8_t)((word1 >> 16) & 3);
+    out.legPitch = (uint16_t)((word1 >> 7) & 0x1FF);
+    out.legHeadingMode = (uint8_t)((word1 >> 4) & 7);
+    out.legAnimMode = (uint8_t)((word1 >> 1) & 7);
+
+    out.legAnim = (uint16_t)((word2 >> 22) & 0x3FF);
+    out.legAnimDuration = (uint16_t)((word2 >> 11) & 0x7FF);
+    out.legApply = (uint8_t)((word2 >> 8) & 7);
+    // word2 bits 0..7 are scratch the path builder writes into at load; nothing authored.
+
+    out.legYaw = (uint16_t)((word3 >> 23) & 0x1FF);
+    out.legSpeed = (uint16_t)((word3 >> 12) & 0x7FF);
+    out.legPause = (uint16_t)((word3 >> 1) & 0x7FF);
+    out.legNoHeadingLookup = (uint8_t)(word3 & 1);
+
+    out.legSmoothTurn = (uint8_t)(node->unk10_6 & 1);
+    out.legPauseIsAlt = (uint8_t)((node->pad10_5 >> 3) & 1);
+}
+
 bool visitNode(NodeProp* node) {
     SetupNode outNode;
     outNode.pos[0] = node->x;
@@ -46,6 +78,10 @@ bool visitNode(NodeProp* node) {
     outNode.pos[2] = node->z;
     outNode.radius = node->radius;
     outNode.category = node->bit6;
+    outNode.script = (uint8_t)node->bit0;
+    if (outNode.script) {
+        decodeScriptLeg(node, outNode);
+    }
     outNode.id = node->unk8;
     outNode.yawRaw = node->yaw;
     outNode.scaleRaw = node->scale;

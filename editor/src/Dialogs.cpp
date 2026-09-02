@@ -22,8 +22,7 @@ void App::DrawReloadOffer() {
         return;
     }
 
-    // Lighthouse writes bk.o2r beside itself, which is beside us. Poll rather than wait on
-    // the process: the archive can also arrive from a Torch run in another window.
+    // Poll for the file rather than the process: Torch in another window produces it too.
     if (mAwaitingExtraction) {
         const double now = ImGui::GetTime();
         if (now >= mNextArchivePoll) {

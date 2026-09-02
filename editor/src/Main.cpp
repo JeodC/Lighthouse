@@ -77,6 +77,10 @@ int main(int, char**) {
     }
 
     ImGui::SaveIniSettingsToDisk(ImGui::GetIO().IniFilename);
+    window->SaveWindowToConfig();
+    if (auto config = ctx->GetConfig()) {
+        config->Save();
+    }
     window->Close();
     spdlog::shutdown();
     std::_Exit(0);

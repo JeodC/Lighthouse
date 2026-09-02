@@ -59,7 +59,6 @@ public:
 
 private:
     void DrawMenuBar();
-    void DrawToolbar();
     void DrawLevelsPanel();
     void DrawObjectsTab();
     void DrawCamerasTab();
@@ -196,6 +195,12 @@ private:
     int mPropSel = -1;
     bool mScrollToSel = false;
     int mRevealTab = -1;
+    char mObjFilter[64] = { 0 };
+    int mObjKind = 0;
+    std::vector<int> mObjVisible;
+    char mLevelFilter[64] = { 0 };
+    char mCamFilter[64] = { 0 };
+    int mCamType = 0;
     struct PickTarget {
         int sel = -1;
         float min[3] = { 0, 0, 0 };

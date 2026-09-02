@@ -14,6 +14,7 @@ extern "C" {
 
 #include <algorithm>
 #include <cmath>
+#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -72,6 +73,24 @@ std::string assetFullName(const std::map<uint32_t, std::string>& index, uint32_t
 const char* camTypeName(uint8_t type) {
     static const char* kNames[] = { "?", "Pivot", "Static", "Zoom", "Random" };
     return type < 5 ? kNames[type] : "?";
+}
+
+const int kCamFilterCount = 6;
+const char* camFilterLabel(int selected) {
+    return selected <= 0 ? "All types" : camTypeName((uint8_t)(selected - 1));
+}
+
+bool cameraMatches(int selected, const char* filter, const Lightbulb::SetupCamera& cam) {
+    if (selected > 0 && (int)cam.type != selected - 1) {
+        return false;
+    }
+    if (filter[0] == '\0') {
+        return true;
+    }
+    char index[16];
+    std::snprintf(index, sizeof(index), "%d", (int)cam.index);
+    return Lightbulb::ui::ContainsNoCase(camTypeName(cam.type), filter) ||
+           Lightbulb::ui::ContainsNoCase(index, filter);
 }
 
 const char* nodeCategoryName(uint8_t category) {
@@ -145,6 +164,76 @@ void lookVectors(float yawDeg, float pitchDeg, float outForward[3], float outRig
     outRight[2] = std::sin(yawDeg * kDeg);
 }
 
+bool isNamedCategory(uint8_t category) {
+    return category == 3 || category == 4 || category == 6 || category == 7 || category == 8 || category == 9 ||
+           category == 10;
+}
+
+const char* propKindName(uint8_t type) {
+    return type == 2 ? "Model" : type == 0 ? "Sprite" : "Actor";
+}
+
+// Props are told apart by type, nodes by category
+struct ObjectKind {
+    const char* label;
+    bool node;
+    int value;
+};
+const ObjectKind kObjectKinds[] = {
+    { "All kinds", false, -1 },       { "Model", false, 2 },
+    { "Sprite", false, 0 },
+    { "Warp", true, 3 },              { "Contact trigger", true, 4 },
+    { "Actor spawn", true, 6 },       { "Enemy boundary", true, 7 },
+    { "Path node", true, 8 },         { "Camera trigger", true, 9 },
+    { "Flag", true, 10 },             { "Other nodes", true, -1 },
+    { "Script waypoint", true, -2 },
+};
+const int kObjectKindCount = (int)(sizeof(kObjectKinds) / sizeof(kObjectKinds[0]));
+
+bool kindMatchesProp(int selected, uint8_t type) {
+    if (selected <= 0) {
+        return true;
+    }
+    const ObjectKind& kind = kObjectKinds[selected];
+    return !kind.node && kind.value == (int)type;
+}
+
+// Names for the two 3-bit switches in func_803422D4, the routine that applies a waypoint.
+const char* legHeadingModeName(uint8_t mode) {
+    static const char* kNames[] = {
+        "unchanged",       "face along the path",   "stop using yaw",        "use yaw",
+        "stop using pitch", "use pitch",            "stop using yaw+pitch",  "use yaw+pitch",
+    };
+    return mode < 8 ? kNames[mode] : "?";
+}
+
+const char* legAnimModeName(uint8_t mode) {
+    static const char* kNames[] = { "unchanged", "unchanged", "play once", "play once reversed",
+                                    "loop",      "loop reversed", "hold",  "unchanged" };
+    return mode < 8 ? kNames[mode] : "?";
+}
+
+const char* nodeKindName(const Lightbulb::SetupNode& node) {
+    return node.script ? "Script waypoint" : nodeCategoryName(node.category);
+}
+
+bool kindMatchesNode(int selected, const Lightbulb::SetupNode& node) {
+    if (selected <= 0) {
+        return true;
+    }
+    const ObjectKind& kind = kObjectKinds[selected];
+    if (!kind.node) {
+        return false;
+    }
+    if (kind.value == -2) {
+        return node.script != 0;
+    }
+    if (node.script) {
+        return false;
+    }
+    return kind.value >= 0 ? kind.value == (int)node.category : !isNamedCategory(node.category);
+}
+
 std::string assetShortName(const std::string& path) {
     const size_t slash = path.find_last_of('/');
     std::string base = (slash == std::string::npos) ? path : path.substr(slash + 1);
@@ -198,8 +287,7 @@ bool App::SelectionFocusTarget(float outCenter[3], float& outRadius) const {
         return true;
     }
 
-    // Nothing was drawn for it this frame - hidden layer, culled, or past the pool limit.
-    // The setup still knows where it sits.
+    // Not drawn this frame (hidden layer, culled, or past the pool limit); fall back to the setup position.
     const int propCount = (int)mSetup.props.size();
     const int nodeCount = (int)mSetup.nodes.size();
     if (mPropSel < propCount) {
@@ -230,8 +318,7 @@ void App::FocusSelection() {
     if (!SelectionFocusTarget(center, radius)) {
         return;
     }
-    // Keep the current heading and only dolly, so focusing reads as travelling to the
-    // object rather than being spun around to face it.
+    // Dolly along the current heading; spinning the camera to face the object is disorienting.
     float forward[3], right[3];
     lookVectors(mLevelScene.yaw, mLevelScene.pitch, forward, right);
     float distance = radius / std::tan(kLevelFovYDeg * 0.5f * kDeg) * 1.6f;
@@ -286,8 +373,18 @@ void App::DrawLevelsPanel() {
 
     const float availY = ImGui::GetContentRegionAvail().y;
     if (ImGui::CollapsingHeader("Levels", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputTextWithHint("##levelfilter", "search levels", mLevelFilter, sizeof(mLevelFilter));
         ImGui::BeginChild("##levellist", ImVec2(0, availY * 0.4f), true);
         for (int row = 0; row < (int)scene.entries.size(); ++row) {
+            if (mLevelFilter[0] != '\0') {
+                char mapHex[8];
+                std::snprintf(mapHex, sizeof(mapHex), "%X", (unsigned)scene.entries[row].mapId);
+                if (!Lightbulb::ui::ContainsNoCase(scene.entries[row].name.c_str(), mLevelFilter) &&
+                    !Lightbulb::ui::ContainsNoCase(mapHex, mLevelFilter)) {
+                    continue;
+                }
+            }
             char label[208];
             std::snprintf(label, sizeof(label), "%s##lvl%d", scene.entries[row].name.c_str(), row);
             if (ImGui::Selectable(label, row == scene.sel)) {
@@ -310,7 +407,7 @@ void App::DrawLevelsPanel() {
         std::vector<int> entryIdx;
         for (int idx = 0; idx < (int)mSetup.nodes.size(); ++idx) {
             const Lightbulb::SetupNode& nd = mSetup.nodes[idx];
-            if (nd.category == 6 && Lightbulb::EditorEntryPointId(nd.id)) {
+            if (!nd.script && nd.category == 6 && Lightbulb::EditorEntryPointId(nd.id)) {
                 entryIdx.push_back(idx);
             }
         }
@@ -347,8 +444,7 @@ void App::DrawLevelsPanel() {
         }
         ImGui::EndTabBar();
     }
-    // The viewport pick below runs after the lists, so a reveal it asks for is consumed on
-    // the next frame; clear it here once they have had their chance.
+    // The pick below runs after the lists, so a reveal lands next frame; clear it once they've seen it.
     mScrollToSel = false;
     mRevealTab = -1;
 
@@ -486,8 +582,99 @@ void App::DrawObjectsTab() {
     }
 
     EnsureAssetIndexes();
-    ImGui::Text("cubes %d   objects %d   spawns/warps/triggers %d   cameras %d", mSetup.cubeCount,
-                (int)mSetup.props.size(), (int)mSetup.nodes.size(), (int)mSetup.cameras.size());
+
+    const int propCount = (int)mSetup.props.size();
+    const int nodeCount = (int)mSetup.nodes.size();
+
+    auto propLabel = [&](const Lightbulb::SetupProp& prop, bool& dim) {
+        dim = false;
+        if (prop.type == 2 || prop.type == 0) {
+            const std::map<uint32_t, std::string>& index = prop.type == 2 ? mModelIndex : mSpriteIndex;
+            const uint32_t assetId = (prop.type == 2 ? 0x2D1u : 0x572u) + prop.id;
+            const auto found = index.find(assetId);
+            if (found != index.end()) {
+                return assetShortName(found->second);
+            }
+            dim = true;
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "%s %X (missing)", prop.type == 2 ? "model" : "sprite", assetId);
+            return std::string(buf);
+        }
+        if (const char* actorName = Lightbulb::ActorEnumName(prop.id)) {
+            return std::string(actorName);
+        }
+        dim = true;
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "actor %X", prop.id);
+        return std::string(buf);
+    };
+
+    auto nodeLabel = [&](const Lightbulb::SetupNode& node, bool& dim) {
+        if (node.script) {
+            dim = false;
+            char buf[48];
+            std::snprintf(buf, sizeof(buf), "uid %u at %.3f", (unsigned)node.pathUid, node.legFraction);
+            return std::string(buf);
+        }
+        if (node.category == 6) {
+            if (const char* actorName = Lightbulb::ActorEnumName(node.id)) {
+                dim = false;
+                return std::string(actorName);
+            }
+        }
+        dim = true;
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "id %u (0x%X)", node.id, node.id);
+        return std::string(buf);
+    };
+
+    ImGui::SetNextItemWidth(-160.0f);
+    ImGui::InputTextWithHint("##objfilter", "search", mObjFilter, sizeof(mObjFilter));
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-1.0f);
+    if (ImGui::BeginCombo("##objkind", kObjectKinds[mObjKind].label)) {
+        for (int kind = 0; kind < kObjectKindCount; ++kind) {
+            if (ImGui::Selectable(kObjectKinds[kind].label, kind == mObjKind)) {
+                mObjKind = kind;
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    const bool searching = mObjFilter[0] != '\0';
+    bool dim = false;
+    mObjVisible.clear();
+    for (int row = 0; row < propCount; ++row) {
+        const Lightbulb::SetupProp& prop = mSetup.props[row];
+        if (!kindMatchesProp(mObjKind, prop.type)) {
+            continue;
+        }
+        if (searching && !Lightbulb::ui::ContainsNoCase(propKindName(prop.type), mObjFilter) &&
+            !Lightbulb::ui::ContainsNoCase(propLabel(prop, dim).c_str(), mObjFilter)) {
+            continue;
+        }
+        mObjVisible.push_back(row);
+    }
+    for (int nodeRow = 0; nodeRow < nodeCount; ++nodeRow) {
+        const Lightbulb::SetupNode& node = mSetup.nodes[nodeRow];
+        if (!kindMatchesNode(mObjKind, node)) {
+            continue;
+        }
+        if (searching && !Lightbulb::ui::ContainsNoCase(nodeKindName(node), mObjFilter) &&
+            !Lightbulb::ui::ContainsNoCase(nodeLabel(node, dim).c_str(), mObjFilter)) {
+            continue;
+        }
+        mObjVisible.push_back(propCount + nodeRow);
+    }
+
+    const int total = propCount + nodeCount;
+    if ((int)mObjVisible.size() == total) {
+        ImGui::Text("cubes %d   objects %d   spawns/warps/triggers %d   cameras %d", mSetup.cubeCount, propCount,
+                    nodeCount, (int)mSetup.cameras.size());
+    } else {
+        ImGui::Text("showing %d of %d   cubes %d   cameras %d", (int)mObjVisible.size(), total, mSetup.cubeCount,
+                    (int)mSetup.cameras.size());
+    }
     ImGui::Separator();
     if (ImGui::BeginChild("##o2robjs")) {
         if (ImGui::BeginTable("##props", 3,
@@ -498,12 +685,18 @@ void App::DrawObjectsTab() {
             ImGui::TableSetupColumn("Object", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableHeadersRow();
-            for (int row = 0; row < (int)mSetup.props.size(); ++row) {
-                const Lightbulb::SetupProp& prop = mSetup.props[row];
+            for (const int row : mObjVisible) {
+                const bool isNode = row >= propCount;
+                const std::string label = isNode ? nodeLabel(mSetup.nodes[row - propCount], dim)
+                                                 : propLabel(mSetup.props[row], dim);
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 char sel[32];
-                std::snprintf(sel, sizeof(sel), "%d##prop%d", row, row);
+                if (isNode) {
+                    std::snprintf(sel, sizeof(sel), "%d##node%d", row, row - propCount);
+                } else {
+                    std::snprintf(sel, sizeof(sel), "%d##prop%d", row, row);
+                }
                 if (ImGui::Selectable(sel, row == mPropSel,
                                       ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
                     mPropSel = row;
@@ -515,53 +708,16 @@ void App::DrawObjectsTab() {
                     ImGui::SetScrollHereY(0.5f);
                 }
                 ImGui::TableNextColumn();
-                ImGui::TextDisabled(prop.type == 2 ? "Model" : prop.type == 0 ? "Sprite" : "Actor");
-                ImGui::TableNextColumn();
-                auto assetCell = [](const std::map<uint32_t, std::string>& index, uint32_t assetId, const char* kind) {
-                    const auto found = index.find(assetId);
-                    if (found != index.end()) {
-                        ImGui::TextUnformatted(assetShortName(found->second).c_str());
-                    } else {
-                        ImGui::TextDisabled("%s %X (missing)", kind, assetId);
-                    }
-                };
-                if (prop.type == 2) {
-                    assetCell(mModelIndex, 0x2D1u + prop.id, "model");
-                } else if (prop.type == 0) {
-                    assetCell(mSpriteIndex, 0x572u + prop.id, "sprite");
-                } else if (const char* an = Lightbulb::ActorEnumName(prop.id)) {
-                    ImGui::TextUnformatted(an);
+                if (isNode) {
+                    ImGui::TextDisabled("%s", nodeKindName(mSetup.nodes[row - propCount]));
                 } else {
-                    ImGui::TextDisabled("actor %X", prop.id);
-                }
-            }
-
-            const int propCount = (int)mSetup.props.size();
-            for (int nodeRow = 0; nodeRow < (int)mSetup.nodes.size(); ++nodeRow) {
-                const Lightbulb::SetupNode& node = mSetup.nodes[nodeRow];
-                const int row = propCount + nodeRow;
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                char sel[32];
-                std::snprintf(sel, sizeof(sel), "%d##node%d", row, nodeRow);
-                if (ImGui::Selectable(sel, row == mPropSel,
-                                      ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
-                    mPropSel = row;
-                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                        FocusSelection();
-                    }
-                }
-                if (mScrollToSel && row == mPropSel) {
-                    ImGui::SetScrollHereY(0.5f);
+                    ImGui::TextDisabled("%s", propKindName(mSetup.props[row].type));
                 }
                 ImGui::TableNextColumn();
-                ImGui::TextDisabled("%s", nodeCategoryName(node.category));
-                ImGui::TableNextColumn();
-                const char* actorName = node.category == 6 ? Lightbulb::ActorEnumName(node.id) : nullptr;
-                if (actorName) {
-                    ImGui::TextUnformatted(actorName);
+                if (dim) {
+                    ImGui::TextDisabled("%s", label.c_str());
                 } else {
-                    ImGui::TextDisabled("id %u (0x%X)", node.id, node.id);
+                    ImGui::TextUnformatted(label.c_str());
                 }
             }
             ImGui::EndTable();
@@ -576,7 +732,28 @@ void App::DrawCamerasTab() {
         return;
     }
 
-    ImGui::Text("%d cameras", (int)mSetup.cameras.size());
+    ImGui::SetNextItemWidth(-160.0f);
+    ImGui::InputTextWithHint("##camfilter", "search", mCamFilter, sizeof(mCamFilter));
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-1.0f);
+    if (ImGui::BeginCombo("##camtype", camFilterLabel(mCamType))) {
+        for (int kind = 0; kind < kCamFilterCount; ++kind) {
+            if (ImGui::Selectable(camFilterLabel(kind), kind == mCamType)) {
+                mCamType = kind;
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    int shown = 0;
+    for (const Lightbulb::SetupCamera& c : mSetup.cameras) {
+        shown += cameraMatches(mCamType, mCamFilter, c) ? 1 : 0;
+    }
+    if (shown == (int)mSetup.cameras.size()) {
+        ImGui::Text("%d cameras", shown);
+    } else {
+        ImGui::Text("showing %d of %d cameras", shown, (int)mSetup.cameras.size());
+    }
     ImGui::Separator();
     if (ImGui::BeginChild("##camlist")) {
         if (ImGui::BeginTable("##cams", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY)) {
@@ -587,6 +764,9 @@ void App::DrawCamerasTab() {
             ImGui::TableHeadersRow();
             const int camBase = (int)mSetup.props.size() + (int)mSetup.nodes.size();
             for (const Lightbulb::SetupCamera& c : mSetup.cameras) {
+                if (!cameraMatches(mCamType, mCamFilter, c)) {
+                    continue;
+                }
                 const int row = camBase + (int)(&c - mSetup.cameras.data());
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
@@ -621,7 +801,7 @@ void App::DrawPathsTab() {
     const int propCount = (int)mSetup.props.size();
     int pathNodes = 0;
     for (const Lightbulb::SetupNode& nd : mSetup.nodes) {
-        if (nd.category == 8) {
+        if (!nd.script && nd.category == 8) {
             ++pathNodes;
         }
     }
@@ -675,32 +855,6 @@ void App::DrawPathsTab() {
         }
     }
     ImGui::EndChild();
-}
-
-void App::DrawToolbar() {
-    if (!mO2rLoaded) {
-        return;
-    }
-    const ImGuiID dockId = ImHashStr("main_dock", 0, ImHashStr("Main - Deck"));
-    if (const ImGuiDockNode* root = ImGui::DockBuilderGetNode(dockId)) {
-        if (root->ChildNodes[0]) {
-            ImGui::SetNextWindowDockID(root->ChildNodes[0]->ID, ImGuiCond_FirstUseEver);
-        }
-    }
-    if (!ImGui::Begin("Controls")) {
-        ImGui::End();
-        return;
-    }
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextDisabled("Fly: WASD / QE, left-drag to look, right-click to select, F to focus it");
-    ImGui::SameLine(ImGui::GetWindowWidth() - 270.0f);
-    ImGui::SetNextItemWidth(150.0f);
-    int moveSpeed = (int)(mConfig.cameraSpeed / 10.0f + 0.5f) * 10;
-    if (ImGui::SliderInt("move speed", &moveSpeed, 10, 100, "%d")) {
-        mConfig.cameraSpeed = (float)((moveSpeed / 10) * 10);
-        SaveSettings();
-    }
-    ImGui::End();
 }
 
 void App::DrawLayersPanel() {
@@ -807,7 +961,7 @@ void App::DrawSelectionProperties() {
         }
         int volumes = 0;
         for (const Lightbulb::SetupNode& nd : mSetup.nodes) {
-            if (nd.category == 9 && nd.id == cam.index) {
+            if (!nd.script && nd.category == 9 && nd.id == cam.index) {
                 ++volumes;
             }
         }
@@ -829,6 +983,51 @@ void App::DrawSelectionProperties() {
 
     if (mPropSel >= propCount) {
         const Lightbulb::SetupNode& node = mSetup.nodes[mPropSel - propCount];
+        if (node.script) {
+            ImGui::Text("Node #%d", mPropSel);
+            ImGui::Separator();
+            ImGui::Text("Category    : Script waypoint");
+            Lightbulb::ui::TextDisabledWrapped("One leg of a scripted path, chained with its control points. "
+                                               "The rider applies these once it passes the fraction.");
+            ImGui::Text("Chain       : uid %u -> %s", (unsigned)node.pathUid,
+                        node.pathNext ? std::to_string(node.pathNext).c_str() : "end");
+            ImGui::Text("At fraction : %.3f", node.legFraction);
+
+            auto applied = [](const char* label, bool on, const char* fmt, ...) {
+                va_list args;
+                va_start(args, fmt);
+                char value[96];
+                std::vsnprintf(value, sizeof(value), fmt, args);
+                va_end(args);
+                if (on) {
+                    ImGui::Text("%s: %s", label, value);
+                } else {
+                    ImGui::TextDisabled("%s: %s (not applied)", label, value);
+                }
+            };
+            // The file keeps times in quarter seconds; show seconds, the unit the doc uses.
+            applied("Speed       ", (node.legApply & 2) != 0, "%u", (unsigned)node.legSpeed);
+            if (node.legPauseIsAlt) {
+                applied("Pause       ", (node.legApply & 1) != 0, "%u (special)", (unsigned)node.legPause);
+            } else {
+                applied("Pause       ", (node.legApply & 1) != 0, "%.2f s", node.legPause / 4.0f);
+            }
+            applied("Animation   ", (node.legApply & 4) != 0, "#%u for %.2f s, %s", (unsigned)node.legAnim,
+                    node.legAnimDuration / 4.0f, legAnimModeName(node.legAnimMode));
+
+            ImGui::Text("Heading     : %s", legHeadingModeName(node.legHeadingMode));
+            if (node.legHeadingMode != 1) {
+                ImGui::Text("Yaw / pitch : %u / %u", (unsigned)node.legYaw, (unsigned)node.legPitch);
+            }
+            if (node.legLinkUid) {
+                ImGui::Text("Blend to    : uid %u (%s%s)", (unsigned)node.legLinkUid,
+                            (node.legBlend & 1) ? "heading" : "", (node.legBlend & 2) ? " speed" : "");
+            }
+            if (node.legSmoothTurn) {
+                ImGui::Text("Smooth turn : yes");
+            }
+            return;
+        }
         const bool isSpawn = node.category == 6;
         const char* actorName = isSpawn ? Lightbulb::ActorEnumName(node.id) : nullptr;
         ImGui::Text("Node #%d", mPropSel);
@@ -874,12 +1073,18 @@ void App::DrawSelectionProperties() {
         }
         if (isSpawn) {
             const uint32_t modelAsset = Lightbulb::ActorModelAsset(node.id);
-            if (modelAsset) {
+            if (modelAsset == 0) {
+                if (Lightbulb::ActorHasModelInfo(node.id)) {
+                    ImGui::Text("Model asset : none");
+                } else {
+                    ImGui::Text("Model asset : unknown");
+                }
+            } else if (mModelIndex.count(modelAsset)) {
                 ImGui::Text("Model asset : %s", assetFullName(mModelIndex, modelAsset).c_str());
-            } else if (Lightbulb::ActorHasModelInfo(node.id)) {
-                ImGui::Text("Model asset : none");
+            } else if (mSpriteIndex.count(modelAsset)) {
+                ImGui::Text("Sprite asset: %s", assetFullName(mSpriteIndex, modelAsset).c_str());
             } else {
-                ImGui::Text("Model asset : unknown");
+                ImGui::Text("Asset       : ASSET_%X (missing)", modelAsset);
             }
         }
         ImGui::Text("Position    : %d, %d, %d", node.pos[0], node.pos[1], node.pos[2]);
@@ -943,13 +1148,31 @@ void App::DrawStatusBar() {
     ImGui::SetNextWindowViewport(viewport->ID);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking |
                              ImGuiWindowFlags_NoSavedSettings;
-    float padY = (barHeight - ImGui::GetTextLineHeight()) * 0.5f;
-    if (padY < 0.0f) {
-        padY = 0.0f;
-    }
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, padY));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 0.0f));
     if (ImGui::Begin("##statusbar", nullptr, flags)) {
+        ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(mStatus.c_str());
+        if (mO2rLoaded) {
+            const char* hint = "Fly: WASD / QE, left-drag to look, right-click to select, F to focus it";
+            const ImGuiStyle& style = ImGui::GetStyle();
+            const float sliderWidth = 150.0f;
+            const float rightWidth = ImGui::CalcTextSize(hint).x + style.ItemSpacing.x + sliderWidth +
+                                     style.ItemInnerSpacing.x + ImGui::CalcTextSize("move speed").x;
+            const float rightX = ImGui::GetWindowWidth() - rightWidth - 8.0f;
+            if (rightX > ImGui::GetCursorPosX()) {
+                ImGui::SameLine(rightX);
+            } else {
+                ImGui::SameLine();
+            }
+            ImGui::TextDisabled("%s", hint);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(sliderWidth);
+            int moveSpeed = (int)(mConfig.cameraSpeed / 10.0f + 0.5f) * 10;
+            if (ImGui::SliderInt("move speed", &moveSpeed, 10, 100, "%d")) {
+                mConfig.cameraSpeed = (float)((moveSpeed / 10) * 10);
+                SaveSettings();
+            }
+        }
     }
     ImGui::End();
     ImGui::PopStyleVar();

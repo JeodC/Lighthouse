@@ -110,7 +110,6 @@ bool App::OpenRomhackPath(const std::string& path) {
 void App::DrawFrame() {
     Lightbulb::PumpAudioEngine();
     DrawMenuBar();
-    DrawToolbar();
     DrawLevelsPanel();
     DrawLayersPanel();
     DrawPropertiesPanel();
@@ -132,13 +131,6 @@ void App::EnforceDefaultLayout() {
 
     const ImGuiID dockId = ImHashStr("main_dock", 0, ImHashStr("Main - Deck"));
     if (!mFreshLayout) {
-        // Older layouts pinned the prompt into the toolbar strip, which is sized for one
-        // row and clipped it. Float it back out.
-        const ImGuiWindow* offer = ImGui::FindWindowByName("Open bk.o2r");
-        if (offer && offer->DockId != 0) {
-            ImGui::DockBuilderDockWindow("Open bk.o2r", 0);
-            ImGui::DockBuilderFinish(dockId);
-        }
         return;
     }
 
@@ -147,18 +139,19 @@ void App::EnforceDefaultLayout() {
     ImGui::DockBuilderSetNodeSize(dockId, ImGui::GetMainViewport()->WorkSize);
 
     ImGuiID center = dockId;
-    const ImGuiID top = ImGui::DockBuilderSplitNode(center, ImGuiDir_Up, 0.05f, nullptr, &center);
     ImGuiID right = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.108f, nullptr, &center);
     const ImGuiID left = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.142f, nullptr, &center);
     const ImGuiID rightTop = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.198f, nullptr, &right);
 
-    // The prompt stays floating: a dock node can't size itself to its content, and the top
-    // strip is sized for the one-row toolbar that lives there once an archive is open.
-    ImGui::DockBuilderDockWindow("Controls", top);
+    // The prompt stays floating: a dock node can't size itself to its content.
     ImGui::DockBuilderDockWindow("Levels", left);
     ImGui::DockBuilderDockWindow("Layers", rightTop);
     ImGui::DockBuilderDockWindow("Properties", right);
     ImGui::DockBuilderDockWindow("Main Game", center);
+
+    if (ImGuiDockNode* node = ImGui::DockBuilderGetNode(left)) {
+        node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+    }
     ImGui::DockBuilderFinish(dockId);
 }
 

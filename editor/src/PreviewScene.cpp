@@ -938,7 +938,7 @@ private:
         return verts;
     }
 
-    static void setGizmoVert(Vtx& vert, const float p[3], const uint8_t color[3]) {
+    static void setGizmoVert(Vtx& vert, const float p[3], const uint8_t color[3], uint8_t alpha = 255) {
         vert.v.ob[0] = p[0];
         vert.v.ob[1] = p[1];
         vert.v.ob[2] = p[2];
@@ -948,7 +948,7 @@ private:
         vert.v.cn[0] = color[0];
         vert.v.cn[1] = color[1];
         vert.v.cn[2] = color[2];
-        vert.v.cn[3] = 255;
+        vert.v.cn[3] = alpha;
     }
 
     void emitGizmoBatch(Vtx* verts, int count) {
@@ -1040,6 +1040,24 @@ private:
                                      rot[axis][1] * kCameraPoints[point][1] + rot[axis][2] * kCameraPoints[point][2];
             }
         }
+
+        // Pale translucent body so it reads at distance; the wire keeps the exact palette color.
+        const uint8_t fill[3] = { (uint8_t)((gizmo.color[0] + 510) / 3), (uint8_t)((gizmo.color[1] + 510) / 3),
+                                  (uint8_t)((gizmo.color[2] + 510) / 3) };
+        if (Vtx* body = allocGizmoVerts(5)) {
+            for (int point = 0; point < 5; ++point) {
+                setGizmoVert(body[point], world[point], fill, 110);
+            }
+            gDPPipeSync(mGfx++);
+            gDPSetRenderMode(mGfx++, G_RM_AA_ZB_XLU_SURF, G_RM_AA_ZB_XLU_SURF2);
+            emitGizmoBatch(body, 5);
+            gSP2Triangles(mGfx++, 0, 1, 3, 0, 0, 3, 2, 0);
+            gSP2Triangles(mGfx++, 0, 4, 1, 0, 1, 4, 3, 0);
+            gSP2Triangles(mGfx++, 3, 4, 2, 0, 2, 4, 0, 0);
+            gDPPipeSync(mGfx++);
+            gDPSetRenderMode(mGfx++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
+        }
+
         static const uint8_t kEdges[8][2] = { { 0, 1 }, { 2, 3 }, { 0, 2 }, { 1, 3 },
                                               { 0, 4 }, { 1, 4 }, { 2, 4 }, { 3, 4 } };
         float edges[8][2][3];

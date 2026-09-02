@@ -54,7 +54,8 @@ bool App::RenderLevelGameFrame() {
         // Load in at the lowest numbered entry point.
         const Lightbulb::SetupNode* entry = nullptr;
         for (const Lightbulb::SetupNode& nd : mSetup.nodes) {
-            if (nd.category == 6 && Lightbulb::EditorEntryPointId(nd.id) && (!entry || nd.id < entry->id)) {
+            if (!nd.script && nd.category == 6 && Lightbulb::EditorEntryPointId(nd.id) &&
+                (!entry || nd.id < entry->id)) {
                 entry = &nd;
             }
         }
@@ -214,6 +215,10 @@ bool App::RenderLevelGameFrame() {
     Lightbulb::SetAudioListener(scene.eye, mShowMusic ? 0 : mapId, models.empty() ? nullptr : models[0],
                                 (int)models.size() > opaqueChunks ? models[opaqueChunks] : nullptr);
     for (const Lightbulb::SetupNode& nd : mSetup.nodes) {
+        // A waypoint's position is float bytes read as coordinates, so it has nowhere to draw.
+        if (nd.script) {
+            continue;
+        }
         const int pickSel = (int)mSetup.props.size() + (int)(&nd - mSetup.nodes.data());
         bool drawn = false;
         if (nd.category == 6 && !(mConfig.layers & Lightbulb::kLayerUnregistered) && mRomhackPath.empty() &&

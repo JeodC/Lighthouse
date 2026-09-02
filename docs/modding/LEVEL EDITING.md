@@ -2,7 +2,7 @@
 
 A Banjo-Kazooie map is two kinds of asset: the **level models** (`assets/level/`, the geometry you walk on) and one **setup file** per map (`assets/setup`). The setup file is everything *placed in* the world: scenery props, collectible sprites, actor spawns, camera definitions, point lights, and the invisible marker nodes. Those nodes decide where the camera changes, where enemies may roam, and which save flag a jiggy sets. This doc is the reference for what's in that file and what each piece does.
 
-`torch modding export` writes each setup out as a readable yaml, but nothing imports it back - editing the yaml does nothing. **Lightbulb**, the level explorer packaged with Lighthouse and launched with `Lighthouse --editor`, is being built for this work and already draws everything below. A finished setup edit ships like any other mod: the changed `assets/setup/...` entry in an `.o2r`, later archive wins.
+**Lightbulb**, the level explorer packaged with Lighthouse and launched with `Lighthouse --editor`, is built for this work and already draws everything below. A finished setup edit ships like any other mod: the changed `assets/setup/...` entry in an `.o2r`, later archive wins.
 
 ---
 
@@ -22,31 +22,31 @@ The file opens with the grid bounds: min and max cell coordinates on each axis. 
 
 ## 2. Props: what you can see
 
-Three record kinds share the objects section, 12 bytes each, told apart by two flag bits ([`prop.h`](../../include/prop.h)):
+Three record kinds share the objects section, told apart by two flags ([`prop.h`](../../include/prop.h)):
 
 | Kind | What | Fields |
 |---|---|---|
-| **Model prop** | static scenery - trees, fences, furniture | model id (+ `0x2D1` = the asset id), position, yaw and roll (a byte each, x2 = degrees), scale (x100 = 1.0, so 2.55 is the ceiling) |
-| **Sprite prop** | billboard - notes, eggs, feathers, grass tufts | sprite id (+ `0x572` = the asset id), position, scale, mirror flag, animation frame, and three 3-bit RGB-subtract values that tint the sprite |
+| **Model prop** | static scenery | model id (+ `0x2D1` = the asset id), position, yaw and roll (in 2-degree steps), scale (x100 = 1.0, so 2.55 is the ceiling) |
+| **Sprite prop** | notes, eggs, feathers, grass tufts | sprite id (+ `0x572` = the asset id), position, scale, mirror flag, animation frame, and three small RGB-subtract values (0-7 each) that tint the sprite |
 | **Actor prop** | a spawned actor's runtime record | position and flags; the marker pointer is filled at runtime |
 
 Model props are pure decoration with collision - no behavior. Anything that *does* something is an actor, and actors are placed by nodes, not props.
 
 ## 3. Nodes: what you can't
 
-A node ([`NodeProp`](../../include/prop.h), 20 bytes) is an invisible point with a category, an id, and a few packed parameters:
+A node ([`NodeProp`](../../include/prop.h)) is an invisible point with a category, an id, and a few parameters:
 
 | Field | Meaning |
 |---|---|
-| position | s16 x/y/z |
-| radius | 9 bits - a horizontal radius for the volume categories (the volume is a cylinder), a box half-extent for the contact categories; for an actor spawn it lands in the actor's `actorTypeSpecificField` as a free parameter ([`actor_cubepropsystem.c:1530`](../../src/core2/actor_cubepropsystem.c#L1530)) |
-| category | 6 bits - what kind of node this is |
-| id | 16 bits - actor id, camera index, warp index, flag value... meaning set by the category |
+| position | whole-number x/y/z |
+| radius | up to 511 units - a horizontal radius for the volume categories (the volume is a cylinder), a box half-extent for the contact categories; for an actor spawn it lands in the actor's `actorTypeSpecificField` as a free parameter ([`actor_cubepropsystem.c:1530`](../../src/core2/actor_cubepropsystem.c#L1530)) |
+| category | what kind of node this is |
+| id | actor id, camera index, warp index, flag value... meaning set by the category |
 | marker id | which actor kind can set this node off - see the contact triggers in [#5](#5-warps-and-contact-triggers-categories-3-and-4) |
-| yaw | 9 bits, in degrees |
-| scale | 23 bits - for an actor spawn, x100 = 1.0 ([`actor_cubepropsystem.c:1531`](../../src/core2/actor_cubepropsystem.c#L1531)); other systems repurpose it (a camera-controller node's scale is read back as a distance, and one dynamic camera mode switches on it outright - [`dynamicCam12.c:238`](../../src/core2/nc/dynamicCam12.c#L238)) |
-| chain links | two 12-bit values: the node's own chain id and the chain id of the *next* node - the linked list the path system is built from ([#8](#8-paths)). Every actor spawn resolves its chain and keeps the id as `secondaryId` ([`gccube.c:1279`](../../src/core2/gccube.c#L1279)) |
-| volume flag | 2 bits, camera triggers only - see [#6](#6-the-three-volume-systems) |
+| yaw | 0-359 degrees |
+| scale | for an actor spawn, x100 = 1.0 ([`actor_cubepropsystem.c:1531`](../../src/core2/actor_cubepropsystem.c#L1531)); other systems repurpose it (a camera-controller node's scale is read back as a distance, and one dynamic camera mode switches on it outright - [`dynamicCam12.c:238`](../../src/core2/nc/dynamicCam12.c#L238)) |
+| chain links | the node's own chain number (up to 4095) and that of the *next* node - the linked list the path system is built from ([#8](#8-paths)). Every actor spawn resolves its chain and keeps the id as `secondaryId` ([`gccube.c:1279`](../../src/core2/gccube.c#L1279)) |
+| volume flag | camera triggers only - see [#6](#6-the-three-volume-systems) |
 
 Seven categories mean something:
 
@@ -60,7 +60,7 @@ Seven categories mean something:
 | 9 | Camera trigger | a cylinder volume that picks the camera - see [#6](#6-the-three-volume-systems) |
 | A | Flag | a cylinder volume that tells collectibles which save flag they are - see [#6](#6-the-three-volume-systems) |
 
-A record whose category is none of these is usually **not a node at all**. The same 20-byte slot also stores scripted-path waypoints ([#8](#8-paths)), whose bytes are a float and packed speed/animation fields. Read as a node they produce junk categories and ids, which is why the contact dispatch treats unknown categories as no-ops ([`warp_dispatch.c:582`](../../src/core2/map/warp_dispatch.c#L582)). Across all 129 retail setups the real categories hold 3928 actor, 3390 camera trigger, 2244 path, 2087 enemy boundary, 832 contact trigger, 400 warp, and 236 flag nodes.
+A record whose category is none of these is **not a node at all**. The same slot also stores scripted-path waypoints ([#8](#8-paths)), which the game tells apart by a flag, not by the category. Read as a node, a waypoint shows a junk category and id - and about one in twelve lands on a real category value by chance. Lightbulb goes by the flag, so they show up as waypoints and nothing else. Across all 129 retail setups the real categories hold 3889 actor, 3390 camera trigger, 2240 path, 2087 enemy boundary, 796 contact trigger, 383 warp, and 236 flag nodes, plus 1215 waypoints.
 
 ## 4. Actor nodes, and the invisible actors
 
@@ -97,9 +97,9 @@ Categories 7, 9, and A have nothing to show at all. All three work the same way:
 
 ### Camera triggers (category 9)
 
-The id is an index into the camera-node section ([#7](#7-camera-nodes)). Every frame the player's position is tested against the zones ([`func_80306EF4`](../../src/core2/gccube.c#L1805)): inside a cylinder's radius horizontally, with the cylinder's center Y within 150 units of the player (the node's 2-bit volume flag can lift the vertical check). The winning zone's camera node takes over. Standing in no zone means the ordinary free camera, and flying skips zone lookup entirely ([`ba_health.c:43`](../../src/core2/ba/ba_health.c#L43)).
+The id is an index into the camera-node section ([#7](#7-camera-nodes)). Every frame the player's position is tested against the zones ([`func_80306EF4`](../../src/core2/gccube.c#L1805)): inside a cylinder's radius horizontally, with the cylinder's center Y within 150 units of the player (the node's volume flag can lift the vertical check). The winning zone's camera node takes over. Standing in no zone means the ordinary free camera, and flying skips zone lookup entirely ([`ba_health.c:43`](../../src/core2/ba/ba_health.c#L43)).
 
-Two more switches on this system: each camera index has a runtime enable flag, all on at load ([`gccube.c:755`](../../src/core2/gccube.c#L755)). Actors and cutscenes can turn a zone off and back on. The 2-bit volume flag also classes a cylinder as applying only to certain lookups. The query runs in a different class while Banjo is in water ([`playerutils.c:276`](../../src/core2/playerutils.c#L276)), so one spot can use different camera zones swimming and on land.
+Two more switches on this system: each camera index has a runtime enable flag, all on at load ([`gccube.c:755`](../../src/core2/gccube.c#L755)). Actors and cutscenes can turn a zone off and back on. The volume flag also classes a cylinder as applying only to certain lookups. The query runs in a different class while Banjo is in water ([`playerutils.c:276`](../../src/core2/playerutils.c#L276)), so one spot can use different camera zones swimming and on land.
 
 To answer "why did the camera change *there*": find the category-9 node whose cylinder you stepped in, read its id, and look that id up in the camera section. The node's type is what the camera did.
 
@@ -109,7 +109,7 @@ An enemy looks up which boundary zone it's standing in and records it ([`actor_a
 
 ### Flag volumes (category A)
 
-The id here is a value collectibles read to learn *which one they are*. A jiggy locates itself in a flag zone and its save-flag id is the zone's value + 1 ([`jiggy.c:45`](../../src/core2/ch/jiggy.c#L45)); an empty honeycomb subtracts `0x63` ([`honeycomb.c:56`](../../src/core2/ch/honeycomb.c#L56)). A Mumbo token subtracts 199 ([`mumbotoken.c:53`](../../src/core2/ch/mumbotoken.c#L53)). The consequence for an editor: move a jiggy without its flag volume and it starts setting a different save bit - or none.
+The id here is a value collectibles read to learn *which one they are*. A jiggy locates itself in a flag zone and its save-flag id is the zone's value + 1 ([`jiggy.c:45`](../../src/core2/ch/jiggy.c#L45)); an empty honeycomb subtracts `0x63` ([`honeycomb.c:56`](../../src/core2/ch/honeycomb.c#L56)). A Mumbo token subtracts 199 ([`mumbotoken.c:53`](../../src/core2/ch/mumbotoken.c#L53)). The consequence for an editor: move a jiggy without its flag volume and it starts setting a different save flag - or none.
 
 ## 7. Camera nodes
 
@@ -128,9 +128,56 @@ The zone-to-camera handoff is [`ba_camera.c:73`](../../src/core2/ba/ba_camera.c#
 
 ## 8. Paths
 
-The 20-byte node slot actually stores **two record types**, and the path system is built from both. Category-8 nodes are the *control points* - positions, strung together by their chain links. Interleaved with them are *scripted waypoints* (Banjo's Backpack calls them SNodes). Same slot, different layout: a float for the fraction along the path, plus packed speed, animation id, and pause time for that leg.
+A path is how you make an actor go somewhere on its own: Boggy's sled race, the Gobi's Valley carpets, Blubber, the Mumbo's Mountain monkey, the Mad Monster Mansion ghosts to name a few. It is a chain of records, each one pointing at the next. Three kinds go in it:
 
-At map load the path builder walks every chain ([`spline_pathfollow.c:525`](../../src/core2/spline_pathfollow.c#L525)): it collects each chain's records in link order, splits control points from script records, and bakes the control points into a spline with the script entries alongside. An actor spawned on a chain binds to its path through the chain id it kept at spawn. That is how a Snippet patrols, how platforms ride their loops, and how the per-leg speed and pause values reach them.
+| Record | What it is for |
+|---|---|
+| **Actor spawn** | the actor that rides the path. It goes first. |
+| **Control point** | a place the route passes through. |
+| **Script waypoint** | an instruction for one part of the route: stop here, go this fast, play this animation, face that way. |
+
+Banjo's Backpack calls waypoints *SNodes* and control points *path nodes*.
+
+### The route
+
+The spawn node comes first, then the control points in order. The actor follows a smooth curve through them rather than straight lines, so a loop needs three or four points, not a dozen. The spawn node has to be the first link in the chain - that is how the game knows which route the actor rides. With no waypoints at all, the actor just travels the route at normal speed, facing the way it is going.
+
+### Waypoints
+
+A waypoint says what happens at one point along the route. Its **fraction** is where: `0` is the start, `1` is the end, `0.5` is halfway. When the actor passes that point the waypoint fires. Waypoints can sit anywhere in the chain - the game sorts them by fraction. Several at the same fraction fire in the order they appear.
+
+A waypoint can do any of these:
+
+- **Stop for a while.** A pause, in seconds. The actor waits, then carries on.
+- **Change speed.** `16` is normal, `48` is quick, `4` is a crawl. The actor keeps that speed until another waypoint changes it.
+- **Play an animation**, for a given number of seconds: once, once backwards, looping, looping backwards, or frozen on its last frame.
+- **Face a direction.** Either face along the route, or face a yaw and pitch given on the waypoint. There are in-between settings that fix one but leave the other free.
+- **Blend toward a later waypoint**, so the heading or the speed changes gradually between the two instead of switching at once. A separate smooth-turn setting makes the actor turn toward its heading over time rather than snap.
+
+Pause, speed and animation each have an on/off switch on the waypoint. Retail levels are full of waypoints carrying a speed or a pitch with the switch off; the game ignores those, and Lightbulb grays them out. Facing and blending have no switch - they always happen when the waypoint fires.
+
+### Reading a vanilla one: the cuckoo clock
+
+Banjo's house has the shortest complete path in the game, and one every player has seen: the cuckoo pops out of the clock, calls, and goes back in. In Lightbulb, open `SM_BANJOS_HOUSE` and filter Objects to *Script waypoint*. It is one chain of eight records:
+
+| Record | What it does |
+|---|---|
+| Actor spawn `CUCKOO_CLOCK`, facing yaw 90 | the rider, first in the chain. |
+| waypoint at 0, nothing on | nothing. A leftover. |
+| waypoint at 0: pause 2 s, animation 223 for 2 s, face yaw 90 | face the room, play the pop-out, hold two seconds. |
+| waypoint at 0: pause 4 s, animation 222 looping 1 s a cycle, face yaw 90 | loop the call for four seconds. |
+| waypoint at 0: stop facing the fixed yaw | free the heading before moving off. |
+| three control points, 170 units above the spawn | the route it then travels. |
+
+Every waypoint is at fraction 0, so they all fire at the start and the pauses sequence them. A patrol would spread its fractions along the route: a waypoint at `0.5` with a pause is "stop halfway".
+
+For the fancier settings, look at the sun door in Gobi's Valley (`GV_SUN_DOOR`): its waypoints blend, play a 78-second animation backwards, and turn smoothly.
+
+### Coming from Banjo's Backpack
+
+BB reads waypoints differently from the game, so check a BB-made level's waypoints in Lightbulb before trusting them. Its **path ID** field is not real - the game overwrites it on load. It can show negative speeds and pauses that the game reads as large positive ones. And it has no fields for facing, playback mode, pitch, animation length or blending, so those are lost when a waypoint goes through BB.
+
+Programmers: the exact layout is `Struct_glspline_t1` in [`spline_pathfollow.c`](../../src/core2/spline_pathfollow.c#L88).
 
 ## 9. Lighting
 
@@ -138,4 +185,4 @@ Section 4 is a list of point lights: position, an inner and outer fade radius, a
 
 ## 10. Reading a setup in Lightbulb
 
-Lightbulb loads the real file through the game's own readers, so what it shows is what the game will do. The Layers menu maps to the categories above - Models, Sprites, Actors, Entries, Warps, Cam Markers, Enemies, Paths, Triggers, Flags, Cameras - plus the grid boundary box and a radius gizmo for the selected node (red for enemy boundaries, green for flag volumes). Camera gizmos and camera-trigger cubes are colored by camera node index using Rare's own eight-color debug palette (the `RGB_VALUES` table retail still carries in `src/core1/debugtext.c`). A camera and every volume that selects it share a color. Nodes with no in-game visual get stand-in models; anything still unaccounted for draws as a gray pyramid - a node the editor has no better picture for yet.
+Lightbulb loads the real file through the game's own readers, so what it shows is what the game will do. The Layers menu maps to the categories above - Models, Sprites, Actors, Entries, Warps, Cam Markers, Enemies, Paths, Triggers, Flags, Cameras - plus the grid boundary box and a radius gizmo for the selected node (red for enemy boundaries, green for flag volumes). Script waypoints appear in the Objects list as their own kind, with chain id and fraction; selecting one shows every field from [#8](#8-paths), grayed where the apply flags leave it inactive. They have no position of their own, so nothing is drawn for them in the viewport. Camera gizmos and camera-trigger cubes are colored by camera node index using Rare's own eight-color debug palette (the `RGB_VALUES` table retail still carries in `src/core1/debugtext.c`). A camera and every volume that selects it share a color. Nodes with no in-game visual get stand-in models; anything still unaccounted for draws as a gray pyramid - a node the editor has no better picture for yet.

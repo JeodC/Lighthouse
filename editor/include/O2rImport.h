@@ -56,6 +56,25 @@ struct SetupNode {
     uint32_t scaleRaw = 0;
     uint8_t pathUid = 0;
     uint8_t pathNext = 0;
+    // A scripted path waypoint in the node slot: the fields above are junk, the leg below is the record.
+    // Split per Struct_glspline_t1 in spline_pathfollow.c.
+    uint8_t script = 0;
+    float legFraction = 0.0f;      // 0..1 along the path; the leg fires once the actor passes it
+    uint8_t legApply = 0;          // bit0 pause, bit1 speed, bit2 animation
+    uint16_t legSpeed = 0;         // quarter units
+    uint16_t legPause = 0;         // quarter units, or an alternate value when legPauseIsAlt
+    uint8_t legPauseIsAlt = 0;
+    uint16_t legAnim = 0;          // 10-bit animation table index
+    uint16_t legAnimDuration = 0;  // quarter units
+    uint8_t legAnimMode = 0;       // 2 once, 3 once reversed, 4 loop, 5 loop reversed, 6 hold
+    uint8_t legHeadingMode = 0;    // 1 face path; 2..7 pick yaw/pitch below, 7 = both
+    uint16_t legYaw = 0;           // degrees
+    uint16_t legPitch = 0;         // degrees
+    uint16_t legLinkUid = 0;       // another waypoint to blend toward, 0 = none
+    uint8_t legBlend = 0;          // bit0 blend heading toward link, bit1 blend speed
+    uint8_t legModeBits = 0;
+    uint8_t legSmoothTurn = 0;
+    uint8_t legNoHeadingLookup = 0;
 };
 struct SetupCamera {
     int16_t index = 0;
