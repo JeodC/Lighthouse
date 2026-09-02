@@ -30,10 +30,13 @@ struct Config {
     std::string lastO2rPath;
     float cameraSpeed = 40.0f;
     bool actorOverrides = true;
+    bool actorModels = true;
     bool autoPlayLevelMusic = false;
     bool animateObjects = true;
+    bool autoOpen = true;
     uint32_t layers = 0xFFFFFFFFu & ~kLayerUnregistered;
 };
+std::string FindBaseArchive();
 bool LoadConfig(Config& out);
 bool SaveConfig(const Config& cfg);
 bool LaunchLighthouse(std::string& outError);

@@ -21,7 +21,17 @@ constexpr const char* kActorOverrides = "gLightbulb.ActorOverrides";
 constexpr const char* kAutoPlayLevelMusic = "gLightbulb.AutoPlayLevelMusic";
 constexpr const char* kLayers = "gLightbulb.Layers";
 constexpr const char* kAnimateObjects = "gLightbulb.AnimateObjects";
+constexpr const char* kAutoOpen = "gLightbulb.AutoOpen";
+constexpr const char* kActorModels = "gLightbulb.ActorModels";
 } // namespace
+
+namespace Lightbulb {
+std::string FindBaseArchive() {
+    const std::string path = Ship::Context::LocateFileAcrossAppDirs("bk.o2r", "bk");
+    std::error_code statErr;
+    return std::filesystem::exists(path, statErr) ? path : std::string();
+}
+} // namespace Lightbulb
 
 App::App() {
     Lightbulb::LoadConfig(mConfig);
@@ -31,9 +41,9 @@ App::App() {
     std::error_code statErr;
     mFreshLayout = (ini == nullptr) || (ini[0] == '\0') || !std::filesystem::exists(ini, statErr);
 
-    const std::string adjacent = Ship::Context::GetPathRelativeToAppBundle("bk.o2r");
-    if (std::filesystem::exists(adjacent, statErr)) {
-        mAdjacentO2rPath = adjacent;
+    mAdjacentO2rPath = Lightbulb::FindBaseArchive();
+    if (mConfig.autoOpen && !mAdjacentO2rPath.empty()) {
+        OpenO2rPath(mAdjacentO2rPath);
     }
 }
 
@@ -225,6 +235,8 @@ bool LoadConfig(Config& out) {
     out.autoPlayLevelMusic = cvars->GetInteger(kAutoPlayLevelMusic, out.autoPlayLevelMusic ? 1 : 0) != 0;
     out.layers = (uint32_t)cvars->GetInteger(kLayers, (int32_t)out.layers);
     out.animateObjects = cvars->GetInteger(kAnimateObjects, out.animateObjects ? 1 : 0) != 0;
+    out.autoOpen = cvars->GetInteger(kAutoOpen, out.autoOpen ? 1 : 0) != 0;
+    out.actorModels = cvars->GetInteger(kActorModels, out.actorModels ? 1 : 0) != 0;
     return true;
 }
 
@@ -239,6 +251,8 @@ bool SaveConfig(const Config& cfg) {
     cvars->SetInteger(kAutoPlayLevelMusic, cfg.autoPlayLevelMusic ? 1 : 0);
     cvars->SetInteger(kLayers, (int32_t)cfg.layers);
     cvars->SetInteger(kAnimateObjects, cfg.animateObjects ? 1 : 0);
+    cvars->SetInteger(kAutoOpen, cfg.autoOpen ? 1 : 0);
+    cvars->SetInteger(kActorModels, cfg.actorModels ? 1 : 0);
     cvars->Save();
     return true;
 }

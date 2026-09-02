@@ -27,9 +27,8 @@ void App::DrawReloadOffer() {
         const double now = ImGui::GetTime();
         if (now >= mNextArchivePoll) {
             mNextArchivePoll = now + 1.0;
-            std::error_code pollErr;
-            const std::string produced = Ship::Context::GetPathRelativeToAppBundle("bk.o2r");
-            if (std::filesystem::exists(produced, pollErr)) {
+            const std::string produced = Lightbulb::FindBaseArchive();
+            if (!produced.empty()) {
                 if (OpenO2rPath(produced)) {
                     mAwaitingExtraction = false;
                     return;
@@ -128,6 +127,14 @@ void App::DrawPreferences() {
         ImGui::End();
         return;
     }
+    ImGui::SeparatorText("Startup");
+    if (ImGui::Checkbox("Open bk.o2r automatically", &mConfig.autoOpen)) {
+        SaveSettings();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Loads the bk.o2r Lighthouse uses, when there is one.");
+    }
+
     ImGui::SeparatorText("Level view");
     if (ImGui::Checkbox("Apply actor spawn overrides", &mConfig.actorOverrides)) {
         Lightbulb::SetActorOverridesEnabled(mConfig.actorOverrides);
@@ -137,13 +144,18 @@ void App::DrawPreferences() {
         ImGui::SetTooltip("Draw actors the way their spawn code places them, not "
                           "raw node values.");
     }
+    if (ImGui::Checkbox("Draw actor models", &mConfig.actorModels)) {
+        SaveSettings();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Off shows a marker where each actor spawns instead.");
+    }
     if (ImGui::Checkbox("Animate objects", &mConfig.animateObjects)) {
         SaveSettings();
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Animate collectibles in the editor.");
     }
-
     if (ImGui::Checkbox("Play the level's music", &mConfig.autoPlayLevelMusic)) {
         if (!mConfig.autoPlayLevelMusic) {
             Lightbulb::StopLevelMusic();
@@ -154,7 +166,7 @@ void App::DrawPreferences() {
         ImGui::SetTooltip("Start a level's own track when you select it. Music > for the rest.");
     }
 
-    ImGui::SeparatorText("Renderer");
+    ImGui::SeparatorText("Display");
     auto backendName = [](int backendId) -> const char* {
         switch (backendId) {
             case 1:
@@ -197,7 +209,6 @@ void App::DrawPreferences() {
         }
     }
 
-    ImGui::SeparatorText("Textures");
     {
         auto cvars = Ship::Context::GetRawInstance()->GetConsoleVariables();
         int filterMode = cvars->GetInteger("gTextureFilter", (int)Fast::FILTER_THREE_POINT);
