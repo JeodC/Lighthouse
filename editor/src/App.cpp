@@ -6,6 +6,9 @@
 #include <cstring>
 #include <ship/Context.h>
 #include <ship/config/ConsoleVariable.h>
+#include <ship/window/Window.h>
+#include <ship/window/gui/Gui.h>
+#include <ship/window/gui/GuiWindow.h>
 #include <spdlog/spdlog.h>
 
 #include "imgui.h"
@@ -251,6 +254,17 @@ void App::DrawMenuBar() {
         ImGui::MenuItem("Sprites...", nullptr, &mShowSprites, mO2rLoaded);
         ImGui::MenuItem("Sounds...", nullptr, &mShowSounds, mO2rLoaded);
         ImGui::MenuItem("Music...", nullptr, &mShowMusic, mO2rLoaded);
+        ImGui::Separator();
+
+        if (auto gui = Ship::Context::GetRawInstance()->GetWindow()->GetGui()) {
+            for (const char* name : { "Console", "Stats" }) {
+                if (auto window = gui->GetGuiWindow(name)) {
+                    if (ImGui::MenuItem(name, nullptr, window->IsVisible())) {
+                        window->ToggleVisibility();
+                    }
+                }
+            }
+        }
         ImGui::Separator();
         ImGui::MenuItem("Preferences...", nullptr, &mShowPreferences);
         ImGui::EndMenu();

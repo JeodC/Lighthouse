@@ -23,13 +23,11 @@ extern "C" {
 #include <cstdlib>
 #include <spdlog/spdlog.h>
 #include <string>
-#include "CrashHandler.h"
 
 int main(int, char**) {
-    Lightbulb::InstallCrashHandler();
-
     Ship::Context* ctx = Ship::Context::CreateUninitializedInstance("Lightbulb", "lightbulb", "lightbulb.cfg.json");
     ctx->InitLogging();
+    ctx->InitCrashHandler();
     ctx->InitConfiguration();
     ctx->InitConsoleVariables();
     ctx->GetConsoleVariables()->SetInteger("gEnableMultiViewports", 0);
