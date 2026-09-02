@@ -34,6 +34,12 @@ struct Config {
     bool autoPlayLevelMusic = false;
     bool animateObjects = true;
     bool autoOpen = true;
+    bool rememberSession = true;
+    std::string lastRomhackPath;
+    int lastMapId = -1;
+    float lastEye[3] = { 0.0f, 0.0f, 0.0f };
+    float lastYaw = 0.0f;
+    float lastPitch = 0.0f;
     uint32_t layers = 0xFFFFFFFFu & ~kLayerUnregistered;
 };
 std::string FindBaseArchive();
@@ -53,6 +59,7 @@ public:
     void DrawFrame();
     bool RenderLevelGameFrame();
     void EnforceDefaultLayout();
+    void SaveSession();
     bool ShouldClose() const {
         return mShouldClose;
     }
@@ -63,6 +70,9 @@ public:
 private:
     void DrawMenuBar();
     void DrawLevelsPanel();
+    void EnsureLevelEntries();
+    void SelectLevel(int row);
+    void RestoreSession(const Lightbulb::Config& saved);
     void DrawObjectsTab();
     void DrawCamerasTab();
     void DrawPathsTab();

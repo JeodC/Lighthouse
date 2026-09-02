@@ -77,6 +77,7 @@ int main(int, char**) {
     }
 
     ImGui::SaveIniSettingsToDisk(ImGui::GetIO().IniFilename);
+    app.SaveSession();
     window->SaveWindowToConfig();
     if (auto config = ctx->GetConfig()) {
         config->Save();

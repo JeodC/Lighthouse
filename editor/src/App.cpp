@@ -23,6 +23,14 @@ constexpr const char* kLayers = "gLightbulb.Layers";
 constexpr const char* kAnimateObjects = "gLightbulb.AnimateObjects";
 constexpr const char* kAutoOpen = "gLightbulb.AutoOpen";
 constexpr const char* kActorModels = "gLightbulb.ActorModels";
+constexpr const char* kRememberSession = "gLightbulb.RememberSession";
+constexpr const char* kLastRomhackPath = "gLightbulb.LastRomhackPath";
+constexpr const char* kLastMap = "gLightbulb.LastMap";
+constexpr const char* kCamX = "gLightbulb.CamX";
+constexpr const char* kCamY = "gLightbulb.CamY";
+constexpr const char* kCamZ = "gLightbulb.CamZ";
+constexpr const char* kCamYaw = "gLightbulb.CamYaw";
+constexpr const char* kCamPitch = "gLightbulb.CamPitch";
 } // namespace
 
 namespace Lightbulb {
@@ -41,10 +49,51 @@ App::App() {
     std::error_code statErr;
     mFreshLayout = (ini == nullptr) || (ini[0] == '\0') || !std::filesystem::exists(ini, statErr);
 
+    // Opening the base drops the remembered layer, so keep the session from before it does.
+    const Lightbulb::Config saved = mConfig;
     mAdjacentO2rPath = Lightbulb::FindBaseArchive();
     if (mConfig.autoOpen && !mAdjacentO2rPath.empty()) {
         OpenO2rPath(mAdjacentO2rPath);
     }
+    if (mO2rLoaded && mConfig.rememberSession) {
+        RestoreSession(saved);
+    }
+}
+
+void App::RestoreSession(const Lightbulb::Config& saved) {
+    std::error_code statErr;
+    if (!saved.lastRomhackPath.empty() && std::filesystem::exists(saved.lastRomhackPath, statErr)) {
+        OpenRomhackPath(saved.lastRomhackPath);
+    }
+    if (saved.lastMapId < 0) {
+        return;
+    }
+    EnsureLevelEntries();
+    for (int row = 0; row < (int)mLevelScene.entries.size(); ++row) {
+        if ((int)mLevelScene.entries[row].mapId != saved.lastMapId) {
+            continue;
+        }
+        SelectLevel(row);
+        for (int axis = 0; axis < 3; ++axis) {
+            mLevelScene.eye[axis] = saved.lastEye[axis];
+        }
+        mLevelScene.yaw = saved.lastYaw;
+        mLevelScene.pitch = saved.lastPitch;
+        mLevelScene.framed = true;
+        break;
+    }
+}
+
+void App::SaveSession() {
+    if (mLevelScene.sel >= 0 && mLevelScene.sel < (int)mLevelScene.entries.size()) {
+        mConfig.lastMapId = mLevelScene.entries[mLevelScene.sel].mapId;
+        for (int axis = 0; axis < 3; ++axis) {
+            mConfig.lastEye[axis] = mLevelScene.eye[axis];
+        }
+        mConfig.lastYaw = mLevelScene.yaw;
+        mConfig.lastPitch = mLevelScene.pitch;
+    }
+    SaveSettings();
 }
 
 App::~App() = default;
@@ -84,6 +133,7 @@ void App::ResetLoadedScene() {
 bool App::OpenO2rPath(const std::string& path) {
     ResetLoadedScene();
     mRomhackPath.clear();
+    mConfig.lastRomhackPath.clear();
     if (Lightbulb::MountO2r(path) != Lightbulb::MountResult::Base) {
         mO2rLoaded = false;
         mStatus = "Not a Banjo-Kazooie bk.o2r (no aBKAssetTable): " + path;
@@ -110,6 +160,8 @@ bool App::OpenRomhackPath(const std::string& path) {
         return false;
     }
     mRomhackPath = path;
+    mConfig.lastRomhackPath = path;
+    SaveSettings();
     Lightbulb::ReleaseMusicTracks();
     mMusicView.paths.clear();
     mMusicView.playing = -1;
@@ -237,6 +289,14 @@ bool LoadConfig(Config& out) {
     out.animateObjects = cvars->GetInteger(kAnimateObjects, out.animateObjects ? 1 : 0) != 0;
     out.autoOpen = cvars->GetInteger(kAutoOpen, out.autoOpen ? 1 : 0) != 0;
     out.actorModels = cvars->GetInteger(kActorModels, out.actorModels ? 1 : 0) != 0;
+    out.rememberSession = cvars->GetInteger(kRememberSession, out.rememberSession ? 1 : 0) != 0;
+    out.lastRomhackPath = cvars->GetString(kLastRomhackPath, "");
+    out.lastMapId = cvars->GetInteger(kLastMap, -1);
+    out.lastEye[0] = cvars->GetFloat(kCamX, 0.0f);
+    out.lastEye[1] = cvars->GetFloat(kCamY, 0.0f);
+    out.lastEye[2] = cvars->GetFloat(kCamZ, 0.0f);
+    out.lastYaw = cvars->GetFloat(kCamYaw, 0.0f);
+    out.lastPitch = cvars->GetFloat(kCamPitch, 0.0f);
     return true;
 }
 
@@ -253,6 +313,14 @@ bool SaveConfig(const Config& cfg) {
     cvars->SetInteger(kAnimateObjects, cfg.animateObjects ? 1 : 0);
     cvars->SetInteger(kAutoOpen, cfg.autoOpen ? 1 : 0);
     cvars->SetInteger(kActorModels, cfg.actorModels ? 1 : 0);
+    cvars->SetInteger(kRememberSession, cfg.rememberSession ? 1 : 0);
+    cvars->SetString(kLastRomhackPath, cfg.lastRomhackPath.c_str());
+    cvars->SetInteger(kLastMap, cfg.lastMapId);
+    cvars->SetFloat(kCamX, cfg.lastEye[0]);
+    cvars->SetFloat(kCamY, cfg.lastEye[1]);
+    cvars->SetFloat(kCamZ, cfg.lastEye[2]);
+    cvars->SetFloat(kCamYaw, cfg.lastYaw);
+    cvars->SetFloat(kCamPitch, cfg.lastPitch);
     cvars->Save();
     return true;
 }

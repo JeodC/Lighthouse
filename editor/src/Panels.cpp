@@ -331,6 +331,52 @@ void App::FocusSelection() {
     mLevelScene.framed = true;
 }
 
+void App::EnsureLevelEntries() {
+    LevelScene& scene = mLevelScene;
+    if (!scene.entries.empty()) {
+        return;
+    }
+    const std::map<uint32_t, std::string> levelIdx = indexById(Lightbulb::ListO2rModelPaths("assets/level"));
+    const std::map<uint32_t, std::string> setupIdx = indexById(Lightbulb::ListO2rResourcePaths("setup"));
+    for (int index = 0; index < Lightbulb::kBKLevelCount; ++index) {
+        const Lightbulb::BKLevel& level = Lightbulb::kBKLevels[index];
+        const auto opaque = levelIdx.find(level.opaModel);
+        if (opaque == levelIdx.end()) {
+            continue;
+        }
+        LevelEntry entry;
+        entry.name = level.name;
+        entry.mapId = level.mapId;
+        entry.chunks.push_back(opaque->second);
+        if (level.xluModel) {
+            const auto translucent = levelIdx.find(level.xluModel);
+            if (translucent != levelIdx.end()) {
+                entry.chunks.push_back(translucent->second);
+            }
+        }
+        const auto setup = setupIdx.find(Lightbulb::BKLevelSetupAsset(level));
+        if (setup != setupIdx.end()) {
+            entry.setupPath = setup->second;
+        }
+        scene.entries.push_back(std::move(entry));
+    }
+}
+
+void App::SelectLevel(int row) {
+    LevelScene& scene = mLevelScene;
+    scene.sel = row;
+    scene.framed = false;
+    mPropSel = -1;
+    ResumeLevelMusic();
+    if (!scene.entries[row].setupPath.empty()) {
+        Lightbulb::LoadO2rSetup(scene.entries[row].setupPath, mSetup);
+    } else {
+        mSetup = Lightbulb::SetupScene{};
+    }
+    mConfig.lastMapId = scene.entries[row].mapId;
+    SaveSettings();
+}
+
 void App::DrawLevelsPanel() {
     if (!ImGui::Begin("Levels")) {
         ImGui::End();
@@ -343,33 +389,7 @@ void App::DrawLevelsPanel() {
     }
 
     LevelScene& scene = mLevelScene;
-
-    if (scene.entries.empty()) {
-        const std::map<uint32_t, std::string> levelIdx = indexById(Lightbulb::ListO2rModelPaths("assets/level"));
-        const std::map<uint32_t, std::string> setupIdx = indexById(Lightbulb::ListO2rResourcePaths("setup"));
-        for (int index = 0; index < Lightbulb::kBKLevelCount; ++index) {
-            const Lightbulb::BKLevel& level = Lightbulb::kBKLevels[index];
-            const auto opaque = levelIdx.find(level.opaModel);
-            if (opaque == levelIdx.end()) {
-                continue;
-            }
-            LevelEntry entry;
-            entry.name = level.name;
-            entry.mapId = level.mapId;
-            entry.chunks.push_back(opaque->second);
-            if (level.xluModel) {
-                const auto translucent = levelIdx.find(level.xluModel);
-                if (translucent != levelIdx.end()) {
-                    entry.chunks.push_back(translucent->second);
-                }
-            }
-            const auto setup = setupIdx.find(Lightbulb::BKLevelSetupAsset(level));
-            if (setup != setupIdx.end()) {
-                entry.setupPath = setup->second;
-            }
-            scene.entries.push_back(std::move(entry));
-        }
-    }
+    EnsureLevelEntries();
 
     const float availY = ImGui::GetContentRegionAvail().y;
     if (ImGui::CollapsingHeader("Levels", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -388,15 +408,7 @@ void App::DrawLevelsPanel() {
             char label[208];
             std::snprintf(label, sizeof(label), "%s##lvl%d", scene.entries[row].name.c_str(), row);
             if (ImGui::Selectable(label, row == scene.sel)) {
-                scene.sel = row;
-                scene.framed = false;
-                mPropSel = -1;
-                ResumeLevelMusic();
-                if (!scene.entries[row].setupPath.empty()) {
-                    Lightbulb::LoadO2rSetup(scene.entries[row].setupPath, mSetup);
-                } else {
-                    mSetup = Lightbulb::SetupScene{};
-                }
+                SelectLevel(row);
             }
         }
         ImGui::EndChild();

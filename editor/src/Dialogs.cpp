@@ -134,6 +134,12 @@ void App::DrawPreferences() {
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Loads the bk.o2r Lighthouse uses, when there is one.");
     }
+    if (ImGui::Checkbox("Remember previous session", &mConfig.rememberSession)) {
+        SaveSettings();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Reopens the last romhack, level and camera position.");
+    }
 
     ImGui::SeparatorText("Level view");
     if (ImGui::Checkbox("Apply actor spawn overrides", &mConfig.actorOverrides)) {
