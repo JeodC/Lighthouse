@@ -69,6 +69,13 @@ uint32_t ActorModelAsset(uint32_t actorId) {
     return lookup(kActorModels, sizeof(kActorModels) / sizeof(kActorModels[0]), actorId);
 }
 
+bool ActorHasModelInfo(uint32_t actorId) {
+    const ActorModel* end = kActorModels + sizeof(kActorModels) / sizeof(kActorModels[0]);
+    const ActorModel* found =
+        std::lower_bound(kActorModels, end, actorId, [](const ActorModel& row, uint32_t id) { return row.actor < id; });
+    return found != end && found->actor == actorId;
+}
+
 const char* ActorEnumName(uint32_t actorId) {
     const ActorName* end = kActorNames + sizeof(kActorNames) / sizeof(kActorNames[0]);
     const ActorName* found =

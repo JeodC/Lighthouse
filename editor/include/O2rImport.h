@@ -143,6 +143,7 @@ void TransformAnimVertices(BKModelBin* model, const Mtx* boneMtx, int boneCount)
 
 namespace Lightbulb {
 uint32_t ActorModelAsset(uint32_t actorId);
+bool ActorHasModelInfo(uint32_t actorId);
 const char* ActorEnumName(uint32_t actorId);
 
 void SetActorOverridesEnabled(bool on);

@@ -494,7 +494,7 @@ void App::DrawObjectsTab() {
                               ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
                                   ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingStretchProp)) {
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 46.0f);
-            ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 54.0f);
+            ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 110.0f);
             ImGui::TableSetupColumn("Object", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableHeadersRow();
@@ -515,7 +515,7 @@ void App::DrawObjectsTab() {
                     ImGui::SetScrollHereY(0.5f);
                 }
                 ImGui::TableNextColumn();
-                ImGui::TextDisabled(prop.type == 2 ? "model" : prop.type == 0 ? "sprite" : "actor");
+                ImGui::TextDisabled(prop.type == 2 ? "Model" : prop.type == 0 ? "Sprite" : "Actor");
                 ImGui::TableNextColumn();
                 auto assetCell = [](const std::map<uint32_t, std::string>& index, uint32_t assetId, const char* kind) {
                     const auto found = index.find(assetId);
@@ -555,13 +555,13 @@ void App::DrawObjectsTab() {
                     ImGui::SetScrollHereY(0.5f);
                 }
                 ImGui::TableNextColumn();
-                ImGui::TextDisabled(node.category == 6 ? "spawn" : "node");
+                ImGui::TextDisabled("%s", nodeCategoryName(node.category));
                 ImGui::TableNextColumn();
                 const char* actorName = node.category == 6 ? Lightbulb::ActorEnumName(node.id) : nullptr;
                 if (actorName) {
                     ImGui::TextUnformatted(actorName);
                 } else {
-                    ImGui::TextDisabled("id %X (cat %u)", node.id, (unsigned)node.category);
+                    ImGui::TextDisabled("id %u (0x%X)", node.id, node.id);
                 }
             }
             ImGui::EndTable();
@@ -831,7 +831,7 @@ void App::DrawSelectionProperties() {
         const Lightbulb::SetupNode& node = mSetup.nodes[mPropSel - propCount];
         const bool isSpawn = node.category == 6;
         const char* actorName = isSpawn ? Lightbulb::ActorEnumName(node.id) : nullptr;
-        ImGui::Text("Node #%d", mPropSel - propCount);
+        ImGui::Text("Node #%d", mPropSel);
         ImGui::Separator();
         ImGui::Text("Category    : %s (%u)", nodeCategoryName(node.category), (unsigned)node.category);
         if (node.category == 9) {
@@ -865,18 +865,22 @@ void App::DrawSelectionProperties() {
             } else {
                 ImGui::Text("Actor       : 0x%X (not in the actor enum)", node.id);
             }
-            ImGui::Text("Id          : 0x%X", node.id);
-        } else {
-            ImGui::Text("Id          : %u (0x%X)", node.id, node.id);
         }
+        ImGui::Text("Id          : %u (0x%X)", node.id, node.id);
         if (isSpawn && !Lightbulb::EditorEntryPointId(node.id) && Lightbulb::ActorIsSpawnable(node.id) &&
             mRomhackPath.empty() && mLevelScene.sel >= 0 && mLevelScene.sel < (int)mLevelScene.entries.size() &&
             !Lightbulb::ActorRegisteredForMap(mLevelScene.entries[mLevelScene.sel].mapId, node.id)) {
             ImGui::TextColored(ImVec4(1.0f, 0.4f, 1.0f, 1.0f), "Never spawns  : map doesn't register this actor");
         }
-        const uint32_t modelAsset = isSpawn ? Lightbulb::ActorModelAsset(node.id) : 0;
-        if (modelAsset) {
-            ImGui::Text("Model asset : %s", assetFullName(mModelIndex, modelAsset).c_str());
+        if (isSpawn) {
+            const uint32_t modelAsset = Lightbulb::ActorModelAsset(node.id);
+            if (modelAsset) {
+                ImGui::Text("Model asset : %s", assetFullName(mModelIndex, modelAsset).c_str());
+            } else if (Lightbulb::ActorHasModelInfo(node.id)) {
+                ImGui::Text("Model asset : none");
+            } else {
+                ImGui::Text("Model asset : unknown");
+            }
         }
         ImGui::Text("Position    : %d, %d, %d", node.pos[0], node.pos[1], node.pos[2]);
         ImGui::Text("Radius      : %u", (unsigned)node.radius);
