@@ -559,9 +559,21 @@ void App::DrawLevelsPanel() {
             scene.pitch = scene.pitch > 89.0f ? 89.0f : (scene.pitch < -89.0f ? -89.0f : scene.pitch);
         }
         if (overView && !io.WantTextInput) {
+            if (io.MouseWheel != 0.0f) {
+                mConfig.cameraSpeed = std::clamp(mConfig.cameraSpeed + (io.MouseWheel > 0.0f ? 10.0f : -10.0f),
+                                                 10.0f, 100.0f);
+                SaveSettings();
+            }
             float look[3], right[3];
             lookVectors(scene.yaw, scene.pitch, look, right);
-            const float step = mConfig.cameraSpeed * io.DeltaTime * 60.0f;
+            float speed = mConfig.cameraSpeed;
+            if (io.KeyShift) {
+                speed += 20.0f;
+            }
+            if (io.KeyCtrl) {
+                speed -= 20.0f;
+            }
+            const float step = std::max(speed, 5.0f) * io.DeltaTime * 60.0f;
             auto move = [&](const float axis[3], float amount) {
                 scene.eye[0] += axis[0] * amount;
                 scene.eye[1] += axis[1] * amount;
@@ -1165,7 +1177,8 @@ void App::DrawStatusBar() {
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(mStatus.c_str());
         if (mO2rLoaded) {
-            const char* hint = "Fly: WASD / QE, left-drag to look, right-click to select, F to focus it";
+            const char* hint = "WASD/QE fly, Shift/Ctrl faster/slower, wheel sets speed, left-drag look, "
+                               "right-click select, F focus";
             const ImGuiStyle& style = ImGui::GetStyle();
             const float sliderWidth = 150.0f;
             const float rightWidth = ImGui::CalcTextSize(hint).x + style.ItemSpacing.x + sliderWidth +
