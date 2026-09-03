@@ -131,6 +131,7 @@ void App::ResetLoadedScene() {
     mModelIndex.clear();
     mSpriteIndex.clear();
     mPickTargets.clear();
+    mHudTexReady = false;
 }
 
 bool App::OpenO2rPath(const std::string& path) {
@@ -183,9 +184,11 @@ void App::DrawFrame() {
     DrawSoundViewer();
     DrawMusicViewer();
     DrawReloadOffer();
+    DrawHistory();
     DrawPreferences();
     DrawCredits();
     DrawStatusBar();
+    DrawLevelHud();
 }
 
 void App::EnforceDefaultLayout() {
@@ -266,6 +269,7 @@ void App::DrawMenuBar() {
             }
         }
         ImGui::Separator();
+        ImGui::MenuItem("History...", nullptr, &mShowHistory, mSetup.loaded);
         ImGui::MenuItem("Preferences...", nullptr, &mShowPreferences);
         ImGui::EndMenu();
     }

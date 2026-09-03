@@ -81,6 +81,7 @@ private:
     void DrawLevelProperties();
     void DrawPropertiesPanel();
     void DrawStatusBar();
+    void DrawLevelHud();
     void DrawModelViewer();
     void DrawSpriteViewer();
     void DrawSoundViewer();
@@ -89,6 +90,14 @@ private:
     void EnsureAssetIndexes();
     void FrameEyeAtEntry(const Lightbulb::SetupNode& node);
     void FocusSelection();
+    void DeleteSelection();
+    void ResetHistory();
+    void RecordEdit(const std::string& label);
+    void ApplyHistory(int step);
+    void Undo();
+    void Redo();
+    void EditShortcuts();
+    void DrawHistory();
     bool SelectionFocusTarget(float outCenter[3], float& outRadius) const;
     void DrawReloadOffer();
     void DrawPreferences();
@@ -122,6 +131,7 @@ private:
     bool mShowSounds = false;
     bool mShowMusic = false;
     bool mMusicPanelOpen = false;
+    bool mShowHistory = false;
     bool mShowPreferences = false;
     bool mShowCredits = false;
 
@@ -205,6 +215,14 @@ private:
     };
     LevelScene mLevelScene;
     Lightbulb::SetupScene mSetup;
+    // Each step is a snapshot of the two lists that can change, kept per loaded level.
+    struct SetupEdit {
+        std::vector<Lightbulb::SetupProp> props;
+        std::vector<Lightbulb::SetupNode> nodes;
+        std::string label;
+    };
+    std::vector<SetupEdit> mHistory;
+    int mHistoryPos = -1;
     int mPropSel = -1;
     bool mScrollToSel = false;
     int mRevealTab = -1;
@@ -220,7 +238,7 @@ private:
         float max[3] = { 0, 0, 0 };
     };
     std::vector<PickTarget> mPickTargets;
-
     std::map<uint32_t, std::string> mModelIndex;
     std::map<uint32_t, std::string> mSpriteIndex;
+    bool mHudTexReady = false;
 };

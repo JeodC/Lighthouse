@@ -6,6 +6,7 @@ extern "C" {
 
 #include "port/Resource/Type/Sprite.h"
 #include <cstring>
+#include <fast/Fast3dGui.h>
 #include <fast/resource/type/Texture.h>
 #include <libultraship/libultra/gbi.h>
 #include <map>
@@ -273,6 +274,34 @@ SpriteFrame SpriteFrameAt(const O2rSpriteTex& sprite, double seconds, int phase)
         step = frameCount - 1;
     }
     return { step, flip != 0 };
+}
+
+namespace {
+std::shared_ptr<Fast::Fast3dGui> fastGui() {
+    auto window = Ship::Context::GetRawInstance()->GetWindow();
+    return window ? std::dynamic_pointer_cast<Fast::Fast3dGui>(window->GetGui()) : nullptr;
+}
+} // namespace
+
+// Decoded to RGBA with its palette, so the icon keeps its alpha over the level view.
+void LoadO2rGuiTexture(const char* name, const char* texturePath, const char* palettePath) {
+    auto gui = fastGui();
+    auto resources = Ship::Context::GetRawInstance()->GetResourceManager();
+    if (!gui || !resources || !resources->LoadResource(texturePath, true)) {
+        return;
+    }
+    gui->LoadGuiTexture(name, texturePath, palettePath, ImVec4(1, 1, 1, 1));
+}
+
+void* O2rGuiTexture(const char* name, float& outWidth, float& outHeight) {
+    auto gui = fastGui();
+    if (!gui || !gui->HasTextureByName(name)) {
+        return nullptr;
+    }
+    const ImVec2 size = gui->GetTextureSize(name);
+    outWidth = size.x;
+    outHeight = size.y;
+    return (void*)(uintptr_t)gui->GetTextureByName(name);
 }
 
 int SpriteRestFrame(const O2rSpriteTex& sprite) {

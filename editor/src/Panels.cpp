@@ -373,6 +373,7 @@ void App::SelectLevel(int row) {
     } else {
         mSetup = Lightbulb::SetupScene{};
     }
+    ResetHistory();
     mConfig.lastMapId = scene.entries[row].mapId;
     SaveSettings();
 }
@@ -593,6 +594,7 @@ void App::DrawLevelsPanel() {
                 scene.eye[1] -= step;
             if (ImGui::IsKeyPressed(ImGuiKey_F))
                 FocusSelection();
+            EditShortcuts();
         }
     }
 
@@ -748,6 +750,121 @@ void App::DrawObjectsTab() {
         }
     }
     ImGui::EndChild();
+    if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
+        EditShortcuts();
+    }
+}
+
+void App::EditShortcuts() {
+    const ImGuiIO& io = ImGui::GetIO();
+    if (io.WantTextInput) {
+        return;
+    }
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
+        Undo();
+    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
+        Redo();
+    } else if (!io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Delete)) {
+        DeleteSelection();
+    }
+}
+
+void App::ResetHistory() {
+    mHistory.clear();
+    mHistoryPos = -1;
+    if (mSetup.loaded) {
+        mHistory.push_back({ mSetup.props, mSetup.nodes, "Level loaded" });
+        mHistoryPos = 0;
+    }
+}
+
+// Called after the change, so every step in the list is a state the level was in.
+void App::RecordEdit(const std::string& label) {
+    if (mHistoryPos < 0) {
+        ResetHistory();
+        return;
+    }
+    mHistory.resize(mHistoryPos + 1);
+    mHistory.push_back({ mSetup.props, mSetup.nodes, label });
+    if (mHistory.size() > 64) {
+        mHistory.erase(mHistory.begin());
+    }
+    mHistoryPos = (int)mHistory.size() - 1;
+}
+
+void App::ApplyHistory(int step) {
+    if (step < 0 || step >= (int)mHistory.size()) {
+        return;
+    }
+    mSetup.props = mHistory[step].props;
+    mSetup.nodes = mHistory[step].nodes;
+    mHistoryPos = step;
+    mPropSel = -1;
+    mScrollToSel = false;
+    mStatus = "History: " + mHistory[step].label;
+}
+
+void App::Undo() {
+    if (mHistoryPos <= 0) {
+        mStatus = "Nothing to undo.";
+        return;
+    }
+    ApplyHistory(mHistoryPos - 1);
+}
+
+void App::Redo() {
+    if (mHistoryPos < 0 || mHistoryPos + 1 >= (int)mHistory.size()) {
+        mStatus = "Nothing to redo.";
+        return;
+    }
+    ApplyHistory(mHistoryPos + 1);
+}
+
+// Drops the record from the loaded scene only - the archive is never written.
+void App::DeleteSelection() {
+    const int propCount = (int)mSetup.props.size();
+    if (mPropSel < 0 || mPropSel >= propCount + (int)mSetup.nodes.size()) {
+        return;
+    }
+    char what[64];
+    if (mPropSel < propCount) {
+        std::snprintf(what, sizeof(what), "%s #%d", propKindName(mSetup.props[mPropSel].type), mPropSel);
+        mSetup.props.erase(mSetup.props.begin() + mPropSel);
+    } else {
+        const int row = mPropSel - propCount;
+        std::snprintf(what, sizeof(what), "%s #%d", nodeKindName(mSetup.nodes[row]), row);
+        mSetup.nodes.erase(mSetup.nodes.begin() + row);
+    }
+    mPropSel = -1;
+    mScrollToSel = false;
+    RecordEdit(std::string("Removed ") + what);
+    mStatus = std::string("Removed ") + what + " from the loaded level. Ctrl-Z puts it back.";
+}
+
+void App::DrawHistory() {
+    if (!mShowHistory) {
+        return;
+    }
+    ImGui::SetNextWindowSize(ImVec2(320, 300), ImGuiCond_Appearing);
+    if (!ImGui::Begin("History", &mShowHistory)) {
+        ImGui::End();
+        return;
+    }
+    if (mHistory.empty()) {
+        ImGui::TextWrapped("Select a level to start a history.");
+        ImGui::End();
+        return;
+    }
+    Lightbulb::ui::TextDisabledWrapped("Steps of the loaded level. Pick one to put the level back in that state.");
+    ImGui::Separator();
+    for (int step = 0; step < (int)mHistory.size(); ++step) {
+        char label[96];
+        std::snprintf(label, sizeof(label), "%d. %s##step%d", step, mHistory[step].label.c_str(), step);
+        if (ImGui::Selectable(label, step == mHistoryPos)) {
+            ApplyHistory(step);
+        }
+    }
+    ImGui::End();
 }
 
 void App::DrawCamerasTab() {
@@ -945,6 +1062,17 @@ void App::DrawPropertiesPanel() {
         return;
     }
     EnsureAssetIndexes();
+    if (mLevelScene.sel >= 0) {
+        // Yaw the way a node stores it, 0-359, so it compares against Yaw (raw) below.
+        float yaw = std::fmod(mLevelScene.yaw, 360.0f);
+        if (yaw < 0.0f) {
+            yaw += 360.0f;
+        }
+        ImGui::Text("Camera: posx %.0f, posy %.0f, posz %.0f", mLevelScene.eye[0], mLevelScene.eye[1],
+                    mLevelScene.eye[2]);
+        ImGui::Text("        yaw %.0f | pitch %.0f", yaw, mLevelScene.pitch);
+        ImGui::Separator();
+    }
     if (ImGui::BeginTabBar("##proptabs")) {
         if (ImGui::BeginTabItem("Selection")) {
             DrawSelectionProperties();
@@ -1164,6 +1292,126 @@ void App::DrawLevelProperties() {
     Lightbulb::ui::TextDisabledWrapped("Boundary editing and level model replacement arrive with o2r writing.");
 }
 
+namespace {
+struct HudIcon {
+    const char* name;
+    const char* texture;
+    const char* palette;
+};
+// The sprites Lighthouse's world tracker loads, in the order the counts are stacked.
+const HudIcon kHudIcons[9] = {
+    { "Jiggy", "assets/sprite/ASSET_80D_LIVE_JIGGY_1_0", "assets/sprite/ASSET_80D_LIVE_JIGGY_1_TLUT" },
+    { "Mumbo Token", "assets/sprite/ASSET_41A_MUMBO_TOKEN_1_0", "assets/sprite/ASSET_41A_MUMBO_TOKEN_1_TLUT" },
+    { "Empty Honeycomb", "assets/sprite/ASSET_81D_LIVE_EXTRA_HEALTH_MAX_1_0",
+      "assets/sprite/ASSET_81D_LIVE_EXTRA_HEALTH_MAX_1_TLUT" },
+    { "Music Note", "assets/sprite/ASSET_81B_LIVE_MUSIC_NOTE_1_0", "assets/sprite/ASSET_81B_LIVE_MUSIC_NOTE_1_TLUT" },
+    { "Blue Jinjo", "assets/sprite/ASSET_804_JINJO_BLUE_0_0", "assets/sprite/ASSET_804_JINJO_BLUE_0_TLUT" },
+    { "Green Jinjo", "assets/sprite/ASSET_803_JINJO_GREEN_0_0", "assets/sprite/ASSET_803_JINJO_GREEN_0_TLUT" },
+    { "Orange Jinjo", "assets/sprite/ASSET_806_JINJO_ORANGE_0_0", "assets/sprite/ASSET_806_JINJO_ORANGE_0_TLUT" },
+    { "Pink Jinjo", "assets/sprite/ASSET_805_JINJO_PINK_0_0", "assets/sprite/ASSET_805_JINJO_PINK_0_TLUT" },
+    { "Yellow Jinjo", "assets/sprite/ASSET_802_JINJO_YELLOW_0_0", "assets/sprite/ASSET_802_JINJO_YELLOW_0_TLUT" },
+};
+constexpr uint32_t kJinjoActors[5] = { 0x60, 0x62, 0x5F, 0x61, 0x5E };
+constexpr float kHudIconPx = 32.0f;
+constexpr float kHudJinjoPx = 48.0f;
+constexpr float kHudGapPx = 6.0f;
+constexpr float kHudEdgeXPx = 10.0f;
+constexpr float kHudEdgeYPx = 20.0f;
+} // namespace
+
+void App::DrawLevelHud() {
+    if (!mSetup.loaded) {
+        return;
+    }
+    float vx, vy, vw, vh;
+    if (!Lightbulb::GetGameViewportRect(vx, vy, vw, vh)) {
+        return;
+    }
+
+    if (!mHudTexReady) {
+        for (const HudIcon& icon : kHudIcons) {
+            Lightbulb::LoadO2rGuiTexture(icon.name, icon.texture, icon.palette);
+        }
+        mHudTexReady = true;
+    }
+
+    int counts[4] = { 0, 0, 0, 0 }; // jiggies, mumbo tokens, empty honeycombs, music notes
+    bool jinjos[5] = { false, false, false, false, false };
+    for (const Lightbulb::SetupNode& nd : mSetup.nodes) {
+        if (nd.script || nd.category != 6) {
+            continue;
+        }
+        switch (nd.id) {
+            case 0x46:
+                ++counts[0];
+                break;
+            case 0x2D:
+                ++counts[1];
+                break;
+            case 0x47:
+                ++counts[2];
+                break;
+            default:
+                for (int j = 0; j < 5; ++j) {
+                    if (nd.id == kJinjoActors[j]) {
+                        jinjos[j] = true;
+                    }
+                }
+                break;
+        }
+    }
+    for (const Lightbulb::SetupProp& prop : mSetup.props) {
+        if (prop.type == 0 && 0x572u + prop.id == 0x6D6u) {
+            ++counts[3];
+        }
+    }
+
+    // Background list, so panels floating over the level view still cover the icons.
+    ImDrawList* draw = ImGui::GetBackgroundDrawList();
+    ImFont* font = ImGui::GetFont();
+    const float textPx = kHudIconPx * 0.8f;
+    const float rowPx = kHudIconPx + kHudGapPx;
+
+    // Fit the icon in a square cell so the counts line up whatever shape the sprite is.
+    auto drawIcon = [&](int slot, float cellX, float cellY, float cellPx, int alpha) {
+        float texW = 0.0f, texH = 0.0f;
+        void* tex = Lightbulb::O2rGuiTexture(kHudIcons[slot].name, texW, texH);
+        if (!tex || texW <= 0.0f || texH <= 0.0f) {
+            return;
+        }
+        const float fit = cellPx / ((texW > texH) ? texW : texH);
+        const float w = texW * fit, h = texH * fit;
+        const ImVec2 at(cellX + (cellPx - w) * 0.5f, cellY + (cellPx - h) * 0.5f);
+        draw->AddImage((ImTextureID)tex, at, ImVec2(at.x + w, at.y + h), ImVec2(0, 0), ImVec2(1, 1),
+                       IM_COL32(255, 255, 255, alpha));
+    };
+
+    // ImGui ships one weight, so the count is stamped a pixel apart to read as bold.
+    auto drawCount = [&](float x, float y, const char* text) {
+        draw->AddText(font, textPx, ImVec2(x + 2.0f, y + 2.0f), IM_COL32(0, 0, 0, 220), text);
+        draw->AddText(font, textPx, ImVec2(x, y), IM_COL32_WHITE, text);
+        draw->AddText(font, textPx, ImVec2(x + 1.0f, y), IM_COL32_WHITE, text);
+        draw->AddText(font, textPx, ImVec2(x, y + 1.0f), IM_COL32_WHITE, text);
+    };
+
+    // The status bar sits over the bottom of the level view, so start above it.
+    const float bottom = vy + vh - ImGui::GetFrameHeight() - kHudEdgeYPx;
+    float y = bottom - kHudIconPx - 3.0f * rowPx;
+    for (int i = 0; i < 4; ++i, y += rowPx) {
+        drawIcon(i, vx + kHudEdgeXPx, y, kHudIconPx, 255);
+        char text[16];
+        std::snprintf(text, sizeof(text), "%d", counts[i]);
+        drawCount(vx + kHudEdgeXPx + kHudIconPx + kHudGapPx, y + (kHudIconPx - textPx) * 0.5f, text);
+    }
+
+    // All five heads stay put, faded like the world tracker's when the map has none of that color.
+    float x = vx + vw - kHudEdgeXPx - kHudJinjoPx;
+    for (int j = 4; j >= 0; --j) {
+        drawIcon(4 + j, x, bottom - kHudJinjoPx, kHudJinjoPx, jinjos[j] ? 255 : 102);
+        x -= kHudJinjoPx + kHudGapPx;
+    }
+}
+
 void App::DrawStatusBar() {
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     const float barHeight = ImGui::GetFrameHeight();
@@ -1178,7 +1426,7 @@ void App::DrawStatusBar() {
         ImGui::TextUnformatted(mStatus.c_str());
         if (mO2rLoaded) {
             const char* hint = "WASD/QE fly, Shift/Ctrl faster/slower, wheel sets speed, left-drag look, "
-                               "right-click select, F focus";
+                               "right-click select, F focus, Del removes, Ctrl-Z undo";
             const ImGuiStyle& style = ImGui::GetStyle();
             const float sliderWidth = 150.0f;
             const float rightWidth = ImGui::CalcTextSize(hint).x + style.ItemSpacing.x + sliderWidth +

@@ -124,6 +124,8 @@ struct SpriteFrame {
 };
 SpriteFrame SpriteFrameAt(const O2rSpriteTex& sprite, double seconds, int phase);
 int SpriteRestFrame(const O2rSpriteTex& sprite);
+void LoadO2rGuiTexture(const char* name, const char* texturePath, const char* palettePath);
+void* O2rGuiTexture(const char* name, float& outWidth, float& outHeight);
 } // namespace Lightbulb
 
 namespace Lightbulb {

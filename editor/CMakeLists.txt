@@ -145,6 +145,9 @@ if(WIN32)
 endif()
 
 target_compile_definitions(Lightbulb PRIVATE EDITOR=1)
+if(WIN32)
+    target_compile_definitions(Lightbulb PRIVATE NOMINMAX)
+endif()
 target_include_directories(Lightbulb PRIVATE
     "${ED}/include"
     "${ED_GEN}"
