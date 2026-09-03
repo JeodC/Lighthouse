@@ -141,19 +141,9 @@ void App::DrawMusicViewer() {
         ImGui::Spacing();
         if (ImGui::BeginTable("##musspec", 2, ImGuiTableFlags_SizingStretchProp)) {
             ImGui::TableSetupColumn("k", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-            auto field = [](const char* label, const char* fmt, ...) {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::TextDisabled("%s", label);
-                ImGui::TableSetColumnIndex(1);
-                va_list args;
-                va_start(args, fmt);
-                ImGui::TextV(fmt, args);
-                va_end(args);
-            };
-            field("Track", "%d (0x%X)", track, track);
-            field("Resource", "%s", path.c_str());
-            field("Playing", "%s", view.playing == track ? "yes" : "no");
+            Lightbulb::ui::TableField("Track", "%d (0x%X)", track, track);
+            Lightbulb::ui::TableField("Resource", "%s", path.c_str());
+            Lightbulb::ui::TableField("Playing", "%s", view.playing == track ? "yes" : "no");
 
             ImGui::EndTable();
         }

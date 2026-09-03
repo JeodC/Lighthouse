@@ -196,12 +196,11 @@ void App::EnforceDefaultLayout() {
         return;
     }
     mLayoutInitialized = true;
-
-    const ImGuiID dockId = ImHashStr("main_dock", 0, ImHashStr("Main - Deck"));
     if (!mFreshLayout) {
         return;
     }
 
+    const ImGuiID dockId = ImHashStr("main_dock", 0, ImHashStr("Main - Deck"));
     ImGui::DockBuilderRemoveNode(dockId);
     ImGui::DockBuilderAddNode(dockId, ImGuiDockNodeFlags_NoTabBar);
     ImGui::DockBuilderSetNodeSize(dockId, ImGui::GetMainViewport()->WorkSize);

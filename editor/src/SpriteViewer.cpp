@@ -59,15 +59,16 @@ void App::DrawSpriteViewer() {
 
     ImGui::BeginChild("##sprview", ImVec2(0, 0), false);
     {
-        Lightbulb::O2rSpriteTex sprite;
-        const bool loaded = view.sel >= 0 && view.sel < (int)view.paths.size() &&
-                            Lightbulb::LoadO2rSpriteByPath(view.paths[view.sel], sprite);
+        const Lightbulb::O2rSpriteTex* loaded = (view.sel >= 0 && view.sel < (int)view.paths.size())
+                                                    ? Lightbulb::LoadO2rSpriteByPath(view.paths[view.sel])
+                                                    : nullptr;
         if (!loaded) {
             ImGui::TextDisabled("(Select a sprite)");
             ImGui::EndChild();
             ImGui::End();
             return;
         }
+        const Lightbulb::O2rSpriteTex& sprite = *loaded;
 
         const int frameCount = (int)sprite.frames.size();
         {
@@ -75,7 +76,7 @@ void App::DrawSpriteViewer() {
             const size_t slash = path.find_last_of('/');
             ImGui::TextUnformatted(path.c_str() + (slash == std::string::npos ? 0 : slash + 1));
         }
-        ImGui::TextDisabled("%d frames | anim type %d, speed %d | f0 %dx%d cellPx "
+        ImGui::TextDisabled("%d frames | anim type %d, speed %d | f0 %dx%d px "
                             "| display %.0fx%.0f",
                             frameCount, sprite.animType, sprite.animSpeed, sprite.frames[0].frameW,
                             sprite.frames[0].frameH, sprite.dispW, sprite.dispH);
@@ -139,8 +140,8 @@ void App::DrawSpriteViewer() {
             const int cellPx = blockView ? kChunkPx : kThumbPx;
             const int count = blockView ? blockCount : frameCount;
             const std::vector<void*>& tex = blockView ? view.chunkTex : view.thumbTex;
-            const float cell = (float)cellPx + 10.0f;
-            int perRow = (int)(ImGui::GetContentRegionAvail().x / cell);
+            const float stride = (float)cellPx + 10.0f;
+            int perRow = (int)(ImGui::GetContentRegionAvail().x / stride);
             if (perRow < 1) {
                 perRow = 1;
             }

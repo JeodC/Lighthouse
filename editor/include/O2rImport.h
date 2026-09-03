@@ -59,19 +59,19 @@ struct SetupNode {
     // A scripted path waypoint in the node slot: the fields above are junk, the leg below is the record.
     // Split per Struct_glspline_t1 in spline_pathfollow.c.
     uint8_t script = 0;
-    float legFraction = 0.0f;      // 0..1 along the path; the leg fires once the actor passes it
-    uint8_t legApply = 0;          // bit0 pause, bit1 speed, bit2 animation
-    uint16_t legSpeed = 0;         // quarter units
-    uint16_t legPause = 0;         // quarter units, or an alternate value when legPauseIsAlt
+    float legFraction = 0.0f; // 0..1 along the path; the leg fires once the actor passes it
+    uint8_t legApply = 0;     // bit0 pause, bit1 speed, bit2 animation
+    uint16_t legSpeed = 0;    // quarter units
+    uint16_t legPause = 0;    // quarter units, or an alternate value when legPauseIsAlt
     uint8_t legPauseIsAlt = 0;
-    uint16_t legAnim = 0;          // 10-bit animation table index
-    uint16_t legAnimDuration = 0;  // quarter units
-    uint8_t legAnimMode = 0;       // 2 once, 3 once reversed, 4 loop, 5 loop reversed, 6 hold
-    uint8_t legHeadingMode = 0;    // 1 face path; 2..7 pick yaw/pitch below, 7 = both
-    uint16_t legYaw = 0;           // degrees
-    uint16_t legPitch = 0;         // degrees
-    uint16_t legLinkUid = 0;       // another waypoint to blend toward, 0 = none
-    uint8_t legBlend = 0;          // bit0 blend heading toward link, bit1 blend speed
+    uint16_t legAnim = 0;         // 10-bit animation table index
+    uint16_t legAnimDuration = 0; // quarter units
+    uint8_t legAnimMode = 0;      // 2 once, 3 once reversed, 4 loop, 5 loop reversed, 6 hold
+    uint8_t legHeadingMode = 0;   // 1 face path; 2..7 pick yaw/pitch below, 7 = both
+    uint16_t legYaw = 0;          // degrees
+    uint16_t legPitch = 0;        // degrees
+    uint16_t legLinkUid = 0;      // another waypoint to blend toward, 0 = none
+    uint8_t legBlend = 0;         // bit0 blend heading toward link, bit1 blend speed
     uint8_t legModeBits = 0;
     uint8_t legSmoothTurn = 0;
     uint8_t legNoHeadingLookup = 0;
@@ -113,10 +113,23 @@ struct O2rSpriteTex {
     float dispW = 0.0f, dispH = 0.0f;
     uint8_t animSpeed = 0, animType = 0;
     uint8_t animDir = 0, animFlip = 0;
+    // Pick box around the origin that covers every frame, at scale 1.
+    float pickHalfWidth = 0.0f, pickLowY = 0.0f, pickHighY = 0.0f;
     bool loaded = false;
 };
-bool LoadO2rSprite(uint32_t assetId, O2rSpriteTex& out);
-bool LoadO2rSpriteByPath(const std::string& basePath, O2rSpriteTex& out);
+// Where a chunk sits around the frame origin, in display units; pixelAspect keeps texel units.
+inline void SpriteChunkRect(const O2rSpriteTex& sprite, const O2rSpriteFrame& frame, const O2rSpriteChunk& chunk,
+                            bool pixelAspect, float& x0, float& x1, float& y0, float& y1) {
+    const float scaleX = pixelAspect ? 1.0f : sprite.dispW / (float)frame.frameW;
+    const float scaleY = pixelAspect ? 1.0f : sprite.dispH / (float)frame.frameH;
+    x0 = (float)(chunk.posX - frame.originX) * scaleX;
+    x1 = (float)(chunk.posX - frame.originX + chunk.width - 1) * scaleX;
+    y1 = (float)(frame.originY - chunk.posY) * scaleY;
+    y0 = (float)(frame.originY - chunk.posY - (chunk.height - 1)) * scaleY;
+}
+// Both point into a cache that lives until the archive changes.
+const O2rSpriteTex* LoadO2rSprite(uint32_t assetId);
+const O2rSpriteTex* LoadO2rSpriteByPath(const std::string& basePath);
 std::vector<std::string> ListO2rSpritePaths();
 struct SpriteFrame {
     int frame = 0;
@@ -156,7 +169,7 @@ std::vector<std::string> ListO2rAnimPaths();
 bool ModelHasAnimTable(uint32_t modelAsset);
 bool ModelUsesAnim(uint32_t modelAsset, uint32_t animAsset);
 float AnimDuration(uint32_t modelAsset, uint32_t animAsset);
-bool LoadO2rAnim(const std::string& path, O2rAnim& out);
+const O2rAnim* LoadO2rAnim(const std::string& path);
 void SampleO2rAnim(const O2rAnim& anim, float progress, std::vector<BonePose>& bonesOut);
 int BuildBoneMatrices(BKModelBin* model, const std::vector<BonePose>& bones, Mtx* out, int maxOut);
 void TransformAnimVertices(BKModelBin* model, const Mtx* boneMtx, int boneCount);

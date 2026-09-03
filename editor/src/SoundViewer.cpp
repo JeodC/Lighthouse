@@ -6,7 +6,6 @@
 
 #include <SDL2/SDL.h>
 #include <algorithm>
-#include <cstdarg>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -147,16 +146,7 @@ const char* FindSfxById(const std::vector<std::string>& paths, int id) {
     return nullptr;
 }
 
-void Field(const char* label, const char* fmt, ...) {
-    ImGui::TableNextRow();
-    ImGui::TableSetColumnIndex(0);
-    ImGui::TextDisabled("%s", label);
-    ImGui::TableSetColumnIndex(1);
-    va_list args;
-    va_start(args, fmt);
-    ImGui::TextV(fmt, args);
-    va_end(args);
-}
+using Lightbulb::ui::TableField;
 
 } // namespace
 
@@ -293,31 +283,32 @@ void App::DrawSoundViewer() {
 
         if (ImGui::BeginTable("##sndspec", 2, ImGuiTableFlags_SizingStretchProp)) {
             ImGui::TableSetupColumn("k", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-            Field("Length", "%.2f s", seconds);
-            Field("Plays at", "%d Hz, mono", (int)(Lightbulb::kSoundBankRate * ratio));
-            Field("Loops", "%s", sound.hasLoop ? "yes" : "no");
+            TableField("Length", "%.2f s", seconds);
+            TableField("Plays at", "%d Hz, mono", (int)(Lightbulb::kSoundBankRate * ratio));
+            TableField("Loops", "%s", sound.hasLoop ? "yes" : "no");
             if (view.showInstruments) {
                 // Real ranges here; only instrument 0 repurposes them for sfx.
-                Field("Key range", "%d-%d", sound.keyMin, sound.keyMax);
-                Field("Velocity", "%d-%d", sound.velocityMin, sound.velocityMax);
+                TableField("Key range", "%d-%d", sound.keyMin, sound.keyMax);
+                TableField("Velocity", "%d-%d", sound.velocityMin, sound.velocityMax);
             } else if (const int chain = Lightbulb::SoundChainTarget(sound); chain >= 0) {
                 // Chain index counts within instrument 0; show it as an sfx id.
                 const int self = SfxIdFromName(ShortName(sound.path));
                 const int target = (self >= 0x3E9 ? 0x3E9 : 0) + chain;
                 const char* name = FindSfxById(view.paths, target);
                 if (name != nullptr) {
-                    Field("Chain", "plays %s after %d frames", name, Lightbulb::SoundChainDelayFrames(sound));
+                    TableField("Chain", "plays %s after %d frames", name, Lightbulb::SoundChainDelayFrames(sound));
                 } else {
-                    Field("Chain", "plays 0x%03X after %d frames", target, Lightbulb::SoundChainDelayFrames(sound));
+                    TableField("Chain", "plays 0x%03X after %d frames", target,
+                               Lightbulb::SoundChainDelayFrames(sound));
                 }
             }
             if (!view.showInstruments) {
                 if (sound.userCount == 0) {
-                    Field("Played by", "nothing by name");
+                    TableField("Played by", "nothing by name");
                 } else if (sound.userCount == 1) {
-                    Field("Played by", "1 actor");
+                    TableField("Played by", "1 actor");
                 } else {
-                    Field("Played by", "%u actors", sound.userCount);
+                    TableField("Played by", "%u actors", sound.userCount);
                 }
             }
             ImGui::EndTable();
@@ -332,24 +323,24 @@ void App::DrawSoundViewer() {
         if (ImGui::CollapsingHeader("Soundfont details")) {
             if (ImGui::BeginTable("##snddec", 2, ImGuiTableFlags_SizingStretchProp)) {
                 ImGui::TableSetupColumn("k", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-                Field("Encoding", "%s, %u bytes, %d samples", sound.waveType == 0 ? "ADPCM" : "raw 16-bit",
-                      sound.encodedBytes, (int)sound.pcm.size());
-                Field("Pitch", "keyBase %d%+d cents -> %.3fx", sound.keyBase, sound.detune, ratio);
+                TableField("Encoding", "%s, %u bytes, %d samples", sound.waveType == 0 ? "ADPCM" : "raw 16-bit",
+                           sound.encodedBytes, (int)sound.pcm.size());
+                TableField("Pitch", "keyBase %d%+d cents -> %.3fx", sound.keyBase, sound.detune, ratio);
                 if (!view.showInstruments) {
-                    Field("Reverb send", "%d/15", Lightbulb::SoundReverbSend(sound));
-                    Field("Volume group", "%d", Lightbulb::SoundVolumeGroup(sound));
-                    Field("Positional", "%s", Lightbulb::SoundIsPositional(sound) ? "yes (decayTime -1)" : "no");
+                    TableField("Reverb send", "%d/15", Lightbulb::SoundReverbSend(sound));
+                    TableField("Volume group", "%d", Lightbulb::SoundVolumeGroup(sound));
+                    TableField("Positional", "%s", Lightbulb::SoundIsPositional(sound) ? "yes (decayTime -1)" : "no");
                 }
-                Field("Pan / volume", "%d / %d", sound.samplePan, sound.sampleVolume);
+                TableField("Pan / volume", "%d / %d", sound.samplePan, sound.sampleVolume);
                 if (sound.hasEnvelope) {
-                    Field("Envelope", "attack %d us to %d, decay %d us to %d, release %d us", sound.attackTime,
-                          sound.attackVolume, sound.decayTime, sound.decayVolume, sound.releaseTime);
+                    TableField("Envelope", "attack %d us to %d, decay %d us to %d, release %d us", sound.attackTime,
+                               sound.attackVolume, sound.decayTime, sound.decayVolume, sound.releaseTime);
                 }
                 if (sound.hasLoop) {
-                    Field("Loop points", "%u..%u", sound.loopStart, sound.loopEnd);
+                    TableField("Loop points", "%u..%u", sound.loopStart, sound.loopEnd);
                 }
                 if (sound.hasBook) {
-                    Field("Codebook", "order %d, %d predictors", sound.bookOrder, sound.bookNpredictors);
+                    TableField("Codebook", "order %d, %d predictors", sound.bookOrder, sound.bookNpredictors);
                 }
                 ImGui::EndTable();
             }

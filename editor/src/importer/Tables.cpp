@@ -54,26 +54,24 @@ bool spawnSetHas(uint16_t overlay, uint32_t actorId) {
         });
     return found != end && found->overlay == overlay && found->actor == actorId;
 }
+
+const ActorModel* findActorModel(uint32_t actorId) {
+    const ActorModel* end = kActorModels + sizeof(kActorModels) / sizeof(kActorModels[0]);
+    const ActorModel* found =
+        std::lower_bound(kActorModels, end, actorId, [](const ActorModel& row, uint32_t id) { return row.actor < id; });
+    return (found != end && found->actor == actorId) ? found : nullptr;
+}
 } // namespace
 } // namespace Lightbulb
 
 namespace Lightbulb {
-static uint32_t lookup(const ActorModel* table, size_t count, uint32_t actorId) {
-    const ActorModel* end = table + count;
-    const ActorModel* found =
-        std::lower_bound(table, end, actorId, [](const ActorModel& row, uint32_t id) { return row.actor < id; });
-    return (found != end && found->actor == actorId) ? found->asset : 0;
-}
-
 uint32_t ActorModelAsset(uint32_t actorId) {
-    return lookup(kActorModels, sizeof(kActorModels) / sizeof(kActorModels[0]), actorId);
+    const ActorModel* found = findActorModel(actorId);
+    return found ? found->asset : 0;
 }
 
 bool ActorHasModelInfo(uint32_t actorId) {
-    const ActorModel* end = kActorModels + sizeof(kActorModels) / sizeof(kActorModels[0]);
-    const ActorModel* found =
-        std::lower_bound(kActorModels, end, actorId, [](const ActorModel& row, uint32_t id) { return row.actor < id; });
-    return found != end && found->actor == actorId;
+    return findActorModel(actorId) != nullptr;
 }
 
 const char* ActorEnumName(uint32_t actorId) {
@@ -83,13 +81,17 @@ const char* ActorEnumName(uint32_t actorId) {
     return (found != end && found->actor == actorId) ? found->name : nullptr;
 }
 
+// Asked per node per frame, so the spawn sets are flattened to one sorted list once.
 bool ActorIsSpawnable(uint32_t actorId) {
-    for (const SpawnSetRow& row : kSpawnSets) {
-        if (row.actor == actorId) {
-            return true;
+    static const std::vector<uint16_t> actors = [] {
+        std::vector<uint16_t> ids;
+        for (const SpawnSetRow& row : kSpawnSets) {
+            ids.push_back(row.actor);
         }
-    }
-    return false;
+        std::sort(ids.begin(), ids.end());
+        return ids;
+    }();
+    return actorId <= 0xFFFF && std::binary_search(actors.begin(), actors.end(), (uint16_t)actorId);
 }
 
 bool ActorRegisteredForMap(uint16_t mapId, uint32_t actorId) {

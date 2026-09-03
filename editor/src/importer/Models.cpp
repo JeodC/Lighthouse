@@ -40,17 +40,13 @@ BKModelBin* LoadO2rModel(const std::string& path) {
         SPDLOG_WARN("o2r: no ResourceManager");
         return nullptr;
     }
-    auto resource = resources->LoadResource(path);
-    if (!resource) {
-        SPDLOG_WARN("o2r: LoadResource('{}') -> null (not mounted / factory failed?)", path);
-        return nullptr;
-    }
-    auto blob = std::static_pointer_cast<Ship::Blob>(resource);
-    if (!blob || blob->Data.empty()) {
-        SPDLOG_WARN("o2r: '{}' -> empty/non-blob resource", path);
-        return nullptr;
-    }
+    // A miss is cached too, so a model that isn't there is looked up and logged once.
     CachedModel& entry = cache[path];
+    auto blob = std::static_pointer_cast<Ship::Blob>(resources->LoadResource(path));
+    if (!blob || blob->Data.empty()) {
+        SPDLOG_WARN("o2r: '{}' is missing or empty", path);
+        return nullptr;
+    }
     entry.blob = blob;
     entry.model = reinterpret_cast<BKModelBin*>(blob->Data.data());
     return entry.model;

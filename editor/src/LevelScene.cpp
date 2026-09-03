@@ -39,7 +39,7 @@ bool App::RenderLevelGameFrame() {
         if (BKModelBin* cm = Lightbulb::LoadO2rModel(chunkPaths[chunkIndex])) {
             models.push_back(cm);
             if (chunkIndex == 0) {
-                opaqueChunks = (int)models.size();
+                opaqueChunks = 1;
             }
         }
     }
@@ -182,37 +182,23 @@ bool App::RenderLevelGameFrame() {
                                    : Lightbulb::SpriteFrame{ Lightbulb::SpriteRestFrame(spriteTex), false };
         Lightbulb::AppendSpriteBillboards(spriteTex, anim.frame, -1, pos, scale, anim.mirror, false, sprs);
 
-        static std::vector<Lightbulb::SpriteBillboard> allFrames;
-        allFrames.clear();
-        for (int frame = 0; frame < (int)spriteTex.frames.size(); ++frame) {
-            Lightbulb::AppendSpriteBillboards(spriteTex, frame, -1, pos, scale, false, false, allFrames);
-        }
-        float halfWidth = 0.0f;
-        float lowY = 0.0f;
-        float highY = 0.0f;
-        bool any = false;
-        for (const Lightbulb::SpriteBillboard& billboard : allFrames) {
-            halfWidth = std::max(halfWidth, 0.5f * std::fabs(billboard.x1 - billboard.x0));
-            lowY = any ? std::min(lowY, billboard.y0) : billboard.y0;
-            highY = any ? std::max(highY, billboard.y1) : billboard.y1;
-            any = true;
-        }
-        if (!any || halfWidth <= 0.0f) {
+        const float halfWidth = spriteTex.pickHalfWidth * scale;
+        if (halfWidth <= 0.0f) {
             return;
         }
         PickTarget target;
         target.sel = sel;
         target.min[0] = pos[0] - halfWidth;
         target.max[0] = pos[0] + halfWidth;
-        target.min[1] = pos[1] + lowY;
-        target.max[1] = pos[1] + highY;
+        target.min[1] = pos[1] + spriteTex.pickLowY * scale;
+        target.max[1] = pos[1] + spriteTex.pickHighY * scale;
         target.min[2] = pos[2] - halfWidth;
         target.max[2] = pos[2] + halfWidth;
         mPickTargets.push_back(target);
     };
 
     const uint16_t mapId = scene.entries[scene.sel].mapId;
-    Lightbulb::SetAudioListener(scene.eye, mShowMusic ? 0 : mapId, models.empty() ? nullptr : models[0],
+    Lightbulb::SetAudioListener(scene.eye, mShowMusic ? 0 : mapId, models[0],
                                 (int)models.size() > opaqueChunks ? models[opaqueChunks] : nullptr);
     for (const Lightbulb::SetupNode& nd : mSetup.nodes) {
         // A waypoint's position is float bytes read as coordinates, so it has nowhere to draw.
@@ -247,7 +233,6 @@ bool App::RenderLevelGameFrame() {
                     inst.pos[0] = (float)nd.pos[0];
                     inst.pos[1] = (float)nd.pos[1] + drawYOff;
                     inst.pos[2] = (float)nd.pos[2];
-                    inst.scale = scale;
                     const float spin = mConfig.animateObjects ? Lightbulb::ActorSpinRate(nd.id) : 0.0f;
                     float yawDeg = (float)nd.yawRaw;
                     Lightbulb::ActorPlacement(nd.id, inst.pos, yawDeg, scale);
@@ -261,24 +246,21 @@ bool App::RenderLevelGameFrame() {
                         const auto xit = mModelIndex.find(extra);
                         if (xit != mModelIndex.end()) {
                             if (BKModelBin* xm = Lightbulb::LoadO2rModel(xit->second)) {
-                                Lightbulb::ModelInstance xluIdx;
-                                xluIdx.model = xm;
-                                xluIdx.pos[0] = (float)nd.pos[0];
-                                xluIdx.pos[1] = (float)nd.pos[1];
-                                xluIdx.pos[2] = (float)nd.pos[2];
-                                xluIdx.scale = scale;
-                                xluIdx.rotDeg[1] = (float)nd.yawRaw;
-                                insts.push_back(xluIdx);
+                                Lightbulb::ModelInstance extraInst;
+                                extraInst.model = xm;
+                                extraInst.pos[0] = (float)nd.pos[0];
+                                extraInst.pos[1] = (float)nd.pos[1];
+                                extraInst.pos[2] = (float)nd.pos[2];
+                                extraInst.scale = scale;
+                                extraInst.rotDeg[1] = (float)nd.yawRaw;
+                                insts.push_back(extraInst);
                             }
                         }
                     }
-                } else {
-                    Lightbulb::O2rSpriteTex spriteTex;
-                    if (Lightbulb::LoadO2rSprite(assetId, spriteTex)) {
-                        const float pos[3] = { (float)nd.pos[0], (float)nd.pos[1], (float)nd.pos[2] };
-                        emitSprite(spriteTex, pos, scale, 0, pickSel);
-                        drawn = true;
-                    }
+                } else if (const Lightbulb::O2rSpriteTex* spriteTex = Lightbulb::LoadO2rSprite(assetId)) {
+                    const float pos[3] = { (float)nd.pos[0], (float)nd.pos[1], (float)nd.pos[2] };
+                    emitSprite(*spriteTex, pos, scale, 0, pickSel);
+                    drawn = true;
                 }
             }
         }
@@ -417,12 +399,12 @@ bool App::RenderLevelGameFrame() {
         if (prop.type != 0 || !(mConfig.layers & Lightbulb::kLayerSprites)) {
             continue;
         }
-        Lightbulb::O2rSpriteTex spriteTex;
-        if (!Lightbulb::LoadO2rSprite(0x572u + prop.id, spriteTex)) {
+        const Lightbulb::O2rSpriteTex* spriteTex = Lightbulb::LoadO2rSprite(0x572u + prop.id);
+        if (!spriteTex) {
             continue;
         }
         const float pos[3] = { (float)prop.pos[0], (float)prop.pos[1], (float)prop.pos[2] };
-        emitSprite(spriteTex, pos, prop.scale ? (float)prop.scale / 100.0f : 1.0f, prop.spritePhase,
+        emitSprite(*spriteTex, pos, prop.scale ? (float)prop.scale / 100.0f : 1.0f, prop.spritePhase,
                    (int)(&prop - mSetup.props.data()));
     }
 

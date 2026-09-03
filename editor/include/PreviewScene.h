@@ -45,9 +45,6 @@ inline constexpr uint8_t kRareCameraColors[8][3] = {
     { 0xFF, 0x80, 0x00 }, // Orange
     { 0x00, 0xFF, 0xFF }, // Cyan
 };
-inline constexpr const char* kRareCameraColorNames[8] = {
-    "Red", "Green", "Blue", "Yellow", "Pink", "White", "Orange", "Cyan",
-};
 
 enum GizmoKind { GIZMO_CUBE = 0, GIZMO_PYRAMID = 1, GIZMO_CAMERA = 2, GIZMO_SPHERE = 3, GIZMO_WIREBOX = 4 };
 struct GizmoInstance {
@@ -65,7 +62,6 @@ struct ModelDrawParams {
     float distance = 1000.0f;
     float center[3] = { 0, 0, 0 };
     float fovYDeg = 40.0f;
-    float lodDistance = 1.0f;
     float radius = 1000.0f;
     bool freeFly = false;
     float eye[3] = { 0, 0, 0 };
@@ -103,9 +99,6 @@ struct SpriteBillboard {
     float x0 = 0, x1 = 0, y0 = 0, y1 = 0;
     bool mirror = false;
 };
-Gfx* BuildModelsDL(BKModelBin* const* models, int count, int width, int height, const ModelDrawParams& p, int targetFb,
-                   const ModelInstance* instances = nullptr, int instCount = 0,
-                   const SpriteBillboard* sprites = nullptr, int spriteCount = 0);
 bool DrawnInstanceBounds(int instIdx, float outMin[3], float outMax[3]);
 void ResetMapXforms();
 } // namespace Lightbulb

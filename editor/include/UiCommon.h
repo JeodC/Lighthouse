@@ -2,8 +2,8 @@
 
 #include "imgui.h"
 
-#include <algorithm>
 #include <cctype>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -11,14 +11,6 @@
 
 namespace Lightbulb {
 namespace ui {
-inline bool Contains(const std::vector<int>& v, int value) {
-    return std::find(v.begin(), v.end(), value) != v.end();
-}
-inline void AddUnique(std::vector<int>& v, int value) {
-    if (!Contains(v, value)) {
-        v.push_back(value);
-    }
-}
 inline bool ContainsNoCase(const char* haystack, const char* needle) {
     if (!needle || !needle[0]) {
         return true;
@@ -45,6 +37,19 @@ inline void TextDisabledWrapped(const char* fmt, ...) {
     ImGui::TextWrappedV(fmt, args);
     va_end(args);
     ImGui::PopStyleColor();
+}
+
+// One row of a two-column spec table: dim label, then the value.
+inline void TableField(const char* label, const char* fmt, ...) IM_FMTARGS(2);
+inline void TableField(const char* label, const char* fmt, ...) {
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextDisabled("%s", label);
+    ImGui::TableSetColumnIndex(1);
+    va_list args;
+    va_start(args, fmt);
+    ImGui::TextV(fmt, args);
+    va_end(args);
 }
 
 inline int AssetPicker(const char* idPrefix, const std::vector<std::string>& paths, char* filter, size_t filterSize,

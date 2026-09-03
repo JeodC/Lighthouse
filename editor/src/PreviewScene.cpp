@@ -7,7 +7,6 @@
 #include <fast/interpreter.h>
 #include <memory>
 #include <ship/Context.h>
-#include <spdlog/spdlog.h>
 
 extern "C" {
 #include "model.h"
@@ -52,7 +51,6 @@ Mtx sMtx[8192];
 Vp sVp;
 Vtx sVtx[8192];
 Vtx sBackdropVtx[4];
-Vtx sSelectionVtx[48];
 
 LookAt sEnvLookAt;
 
@@ -203,6 +201,20 @@ const float kCameraPoints[8][3] = {
     { -50, -50, 0 }, { 50, -50, 0 }, { -50, 50, 0 }, { 50, 50, 0 },
     { 0, 0, 50 },    { -40, 55, 0 }, { 40, 55, 0 },  { 0, 85, 0 },
 };
+const uint8_t kBoxEdges[12][2] = { { 0, 1 }, { 1, 3 }, { 3, 2 }, { 2, 0 }, { 4, 5 }, { 5, 7 },
+                                   { 7, 6 }, { 6, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 } };
+
+// Corner bit 0 picks x, bit 1 y, bit 2 z.
+void boxEdges(const float lo[3], const float hi[3], float edges[12][2][3]) {
+    for (int edge = 0; edge < 12; ++edge) {
+        for (int end = 0; end < 2; ++end) {
+            const int corner = kBoxEdges[edge][end];
+            edges[edge][end][0] = (corner & 1) ? hi[0] : lo[0];
+            edges[edge][end][1] = (corner & 2) ? hi[1] : lo[1];
+            edges[edge][end][2] = (corner & 4) ? hi[2] : lo[2];
+        }
+    }
+}
 
 void drawBillboard(Gfx*& gfx, Vtx* verts, const SpriteBillboard& sprite, const float right[3], const float up[3]) {
     const float* origin = sprite.pos;
@@ -276,76 +288,59 @@ void drawBillboard(Gfx*& gfx, Vtx* verts, const SpriteBillboard& sprite, const f
 void buildFrustum(Frustum& frustum, const float eye[3], const float focus[3], float fovYDeg, float aspect, float nearp,
                   float farp) {
     float fwd[3] = { focus[0] - eye[0], focus[1] - eye[1], focus[2] - eye[2] };
-    float fwdLen = std::sqrt(fwd[0] * fwd[0] + fwd[1] * fwd[1] + fwd[2] * fwd[2]);
-    if (fwdLen <= 0.0001f) {
+    if (dot3(fwd, fwd) <= 1e-8f) {
         frustum.valid = false;
         return;
     }
-    for (int axisIdx = 0; axisIdx < 3; ++axisIdx) {
-        fwd[axisIdx] /= fwdLen;
-    }
+    normalize3(fwd);
     const float wup[3] = { 0.0f, 1.0f, 0.0f };
-    float right[3] = { fwd[1] * wup[2] - fwd[2] * wup[1], fwd[2] * wup[0] - fwd[0] * wup[2],
-                       fwd[0] * wup[1] - fwd[1] * wup[0] };
-    float rightLen = std::sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]);
-    if (rightLen <= 0.0001f) {
+    float right[3];
+    cross3(right, fwd, wup);
+    if (dot3(right, right) <= 1e-8f) {
         frustum.valid = false;
         return;
     }
-    for (int axisIdx = 0; axisIdx < 3; ++axisIdx) {
-        right[axisIdx] /= rightLen;
-    }
-    const float up[3] = { right[1] * fwd[2] - right[2] * fwd[1], right[2] * fwd[0] - right[0] * fwd[2],
-                          right[0] * fwd[1] - right[1] * fwd[0] };
+    normalize3(right);
+    float up[3];
+    cross3(up, right, fwd);
 
     const float tanHalfY = std::tan(rad(fovYDeg) * 0.5f);
     const float tanHalfX = tanHalfY * aspect;
     auto setPlane = [&](int idx, const float axis[3], const float point[3]) {
-        const float len = std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+        float normal[3] = { axis[0], axis[1], axis[2] };
+        normalize3(normal);
         for (int axisIdx = 0; axisIdx < 3; ++axisIdx) {
-            frustum.planes[idx][axisIdx] = axis[axisIdx] / len;
+            frustum.planes[idx][axisIdx] = normal[axisIdx];
         }
-        frustum.planes[idx][3] = -(frustum.planes[idx][0] * point[0] + frustum.planes[idx][1] * point[1] +
-                                   frustum.planes[idx][2] * point[2]);
+        frustum.planes[idx][3] = -dot3(normal, point);
     };
-    float nearCenter[3], farCenter[3], normal[3];
+    float nearCenter[3], farCenter[3], back[3];
     for (int axisIdx = 0; axisIdx < 3; ++axisIdx) {
         nearCenter[axisIdx] = eye[axisIdx] + fwd[axisIdx] * nearp;
         farCenter[axisIdx] = eye[axisIdx] + fwd[axisIdx] * farp;
+        back[axisIdx] = -fwd[axisIdx];
     }
     setPlane(0, fwd, nearCenter);
-    for (int axisIdx = 0; axisIdx < 3; ++axisIdx) {
-        normal[axisIdx] = -fwd[axisIdx];
-    }
-    setPlane(1, normal, farCenter);
-    float edge[3];
-    for (int axisIdx = 0; axisIdx < 3; ++axisIdx) {
-        edge[axisIdx] = fwd[axisIdx] + right[axisIdx] * tanHalfX;
-    }
-    normal[0] = up[1] * edge[2] - up[2] * edge[1];
-    normal[1] = up[2] * edge[0] - up[0] * edge[2];
-    normal[2] = up[0] * edge[1] - up[1] * edge[0];
+    setPlane(1, back, farCenter);
+
+    // Each side plane hinges on one axis and follows the frustum edge along the other.
+    float edge[3], normal[3];
+    auto sideEdge = [&](const float along[3], float spread) {
+        for (int axisIdx = 0; axisIdx < 3; ++axisIdx) {
+            edge[axisIdx] = fwd[axisIdx] + along[axisIdx] * spread;
+        }
+    };
+    sideEdge(right, tanHalfX);
+    cross3(normal, up, edge);
     setPlane(2, normal, eye);
-    for (int axisIdx = 0; axisIdx < 3; ++axisIdx) {
-        edge[axisIdx] = fwd[axisIdx] - right[axisIdx] * tanHalfX;
-    }
-    normal[0] = edge[1] * up[2] - edge[2] * up[1];
-    normal[1] = edge[2] * up[0] - edge[0] * up[2];
-    normal[2] = edge[0] * up[1] - edge[1] * up[0];
+    sideEdge(right, -tanHalfX);
+    cross3(normal, edge, up);
     setPlane(3, normal, eye);
-    for (int axisIdx = 0; axisIdx < 3; ++axisIdx) {
-        edge[axisIdx] = fwd[axisIdx] + up[axisIdx] * tanHalfY;
-    }
-    normal[0] = edge[1] * right[2] - edge[2] * right[1];
-    normal[1] = edge[2] * right[0] - edge[0] * right[2];
-    normal[2] = edge[0] * right[1] - edge[1] * right[0];
+    sideEdge(up, tanHalfY);
+    cross3(normal, edge, right);
     setPlane(4, normal, eye);
-    for (int axisIdx = 0; axisIdx < 3; ++axisIdx) {
-        edge[axisIdx] = fwd[axisIdx] - up[axisIdx] * tanHalfY;
-    }
-    normal[0] = right[1] * edge[2] - right[2] * edge[1];
-    normal[1] = right[2] * edge[0] - right[0] * edge[2];
-    normal[2] = right[0] * edge[1] - right[1] * edge[0];
+    sideEdge(up, -tanHalfY);
+    cross3(normal, right, edge);
     setPlane(5, normal, eye);
     frustum.valid = true;
 }
@@ -1128,17 +1123,8 @@ private:
                 span = gizmo.halfExtent[axis] * 2.0f;
             }
         }
-        static const uint8_t kEdges[12][2] = { { 0, 1 }, { 1, 3 }, { 3, 2 }, { 2, 0 }, { 4, 5 }, { 5, 7 },
-                                               { 7, 6 }, { 6, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 } };
         float edges[12][2][3];
-        for (int edge = 0; edge < 12; ++edge) {
-            for (int end = 0; end < 2; ++end) {
-                const int corner = kEdges[edge][end];
-                edges[edge][end][0] = (corner & 1) ? hi[0] : lo[0];
-                edges[edge][end][1] = (corner & 2) ? hi[1] : lo[1];
-                edges[edge][end][2] = (corner & 4) ? hi[2] : lo[2];
-            }
-        }
+        boxEdges(lo, hi, edges);
         float thickness = span * 0.003f;
         if (thickness < 4.0f) {
             thickness = 4.0f;
@@ -1213,41 +1199,8 @@ private:
         if (thickness < 2.0f) {
             thickness = 2.0f;
         }
-
-        static const uint8_t kEdges[12][2] = { { 0, 1 }, { 1, 3 }, { 3, 2 }, { 2, 0 }, { 4, 5 }, { 5, 7 },
-                                               { 7, 6 }, { 6, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 } };
-        auto cornerAt = [&](int corner, float out[3]) {
-            out[0] = (corner & 1) ? hi[0] : lo[0];
-            out[1] = (corner & 2) ? hi[1] : lo[1];
-            out[2] = (corner & 4) ? hi[2] : lo[2];
-        };
-
-        int vertCount = 0;
-        for (const auto& edge : kEdges) {
-            float from[3], to[3];
-            cornerAt(edge[0], from);
-            cornerAt(edge[1], to);
-            float along[3] = { to[0] - from[0], to[1] - from[1], to[2] - from[2] };
-            normalize3(along);
-            float perp[3];
-            cross3(perp, along, viewDir);
-            normalize3(perp);
-            for (int step = 0; step < 4; ++step) {
-                const float* base = (step < 2) ? from : to;
-                const float side = (step == 0 || step == 3) ? 0.5f : -0.5f;
-                Vtx& vert = sSelectionVtx[vertCount++];
-                for (int axis = 0; axis < 3; ++axis) {
-                    vert.v.ob[axis] = base[axis] + perp[axis] * thickness * side;
-                }
-                vert.v.flag = 0;
-                vert.v.tc[0] = 0;
-                vert.v.tc[1] = 0;
-                vert.v.cn[0] = 255;
-                vert.v.cn[1] = 216;
-                vert.v.cn[2] = 51;
-                vert.v.cn[3] = 255;
-            }
-        }
+        float edges[12][2][3];
+        boxEdges(lo, hi, edges);
 
         gDPPipeSync(mGfx++);
 
@@ -1262,14 +1215,8 @@ private:
         gDPSetCombineMode(mGfx++, G_CC_SHADE, G_CC_SHADE);
         gDPSetRenderMode(mGfx++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
 
-        for (int first = 0; first < 12; first += 6) {
-            gSPSegment(mGfx++, 0x04, (void*)&sSelectionVtx[first * 4]);
-            __gSPVertex(mGfx++, (void*)(uintptr_t)0x04000001, 24, 0);
-            for (int edge = 0; edge < 6; ++edge) {
-                const int base = edge * 4;
-                gSP2Triangles(mGfx++, base, base + 1, base + 2, 0, base, base + 2, base + 3, 0);
-            }
-        }
+        static const uint8_t kSelectionColor[3] = { 255, 216, 51 };
+        drawWireEdges(edges, 12, kSelectionColor, thickness, viewDir);
         gDPPipeSync(mGfx++);
     }
 
@@ -1366,16 +1313,17 @@ private:
     Frustum mFrustum;
 };
 
-} // namespace
-
 Gfx* BuildModelsDL(BKModelBin* const* models, int count, int width, int height, const ModelDrawParams& p, int targetFb,
-                   const ModelInstance* instances, int instCount, const SpriteBillboard* sprites, int spriteCount) {
+                   const ModelInstance* instances = nullptr, int instCount = 0,
+                   const SpriteBillboard* sprites = nullptr, int spriteCount = 0) {
     if (count < 0 || (count > 0 && !models) || width <= 0 || height <= 0) {
         return nullptr;
     }
     ModelDlBuilder builder(p, width, height, targetFb);
     return builder.build(models, count, instances, instCount, sprites, spriteCount);
 }
+
+} // namespace
 
 void GizmoBounds(const GizmoInstance& gizmo, float outMin[3], float outMax[3]) {
     switch (gizmo.kind) {
@@ -1450,40 +1398,18 @@ bool DrawnInstanceBounds(int instIdx, float outMin[3], float outMax[3]) {
 namespace Lightbulb {
 void* RenderModelsPreview(BKModelBin* const* models, int count, int width, int height, const ModelDrawParams& params,
                           int viewId) {
-    static bool sLogged = false;
-    const bool log = !sLogged;
-    sLogged = true;
-
     if (!models || count <= 0 || !models[0] || width <= 0 || height <= 0) {
-        if (log)
-            SPDLOG_WARN("preview: bad input, count={} {}x{}", count, width, height);
         return nullptr;
     }
     auto interpreter = fastInterpreter();
     if (!interpreter) {
-        if (log)
-            SPDLOG_WARN("preview: no Fast3D interpreter");
         return nullptr;
     }
-    const int sFb = previewFramebuffer(*interpreter, 0, viewId, width, height);
-
+    const int framebuffer = previewFramebuffer(*interpreter, 0, viewId, width, height);
     ModelDrawParams previewParams = params;
     previewParams.drawBackdrop = true;
-    Gfx* displayList = BuildModelsDL(models, count, width, height, previewParams, sFb);
-    if (!displayList) {
-        if (log)
-            SPDLOG_WARN("preview: BuildModelsDL -> null (model sections missing?)");
-        return nullptr;
-    }
-
-    void* tex = runToFramebuffer(*interpreter, displayList, sFb);
-    if (log) {
-        SPDLOG_INFO("preview: framebuffer={} {}x{} count={} freeFly={} "
-                    "eye=({:.0f},{:.0f},{:.0f}) far={:.0f} tex={}",
-                    sFb, width, height, count, params.freeFly, params.eye[0], params.eye[1], params.eye[2],
-                    params.farOverride, tex);
-    }
-    return tex;
+    Gfx* displayList = BuildModelsDL(models, count, width, height, previewParams, framebuffer);
+    return displayList ? runToFramebuffer(*interpreter, displayList, framebuffer) : nullptr;
 }
 
 void* RenderModelPreview(BKModelBin* model, int width, int height, const ModelDrawParams& params, int viewId) {
@@ -1496,8 +1422,7 @@ void AppendSpriteBillboards(const O2rSpriteTex& sprite, int frameIndex, int only
         return;
     }
     const O2rSpriteFrame& frame = sprite.frames[frameIndex];
-    const float scaleX = pixelAspect ? 1.0f : (sprite.dispW / (float)frame.frameW) * scale;
-    const float scaleY = pixelAspect ? 1.0f : (sprite.dispH / (float)frame.frameH) * scale;
+    const float mul = pixelAspect ? 1.0f : scale;
     for (size_t chunkIdx = 0; chunkIdx < frame.chunks.size(); ++chunkIdx) {
         const O2rSpriteChunk& chunk = frame.chunks[chunkIdx];
         if (!chunk.texels || (onlyChunk >= 0 && (int)chunkIdx != onlyChunk)) {
@@ -1514,10 +1439,11 @@ void AppendSpriteBillboards(const O2rSpriteTex& sprite, int frameIndex, int only
         billboard.pos[0] = pos[0];
         billboard.pos[1] = pos[1];
         billboard.pos[2] = pos[2];
-        billboard.x0 = (float)(chunk.posX - frame.originX) * scaleX;
-        billboard.x1 = (float)(chunk.posX - frame.originX + chunk.width - 1) * scaleX;
-        billboard.y1 = (float)(frame.originY - chunk.posY) * scaleY;
-        billboard.y0 = (float)(frame.originY - chunk.posY - (chunk.height - 1)) * scaleY;
+        SpriteChunkRect(sprite, frame, chunk, pixelAspect, billboard.x0, billboard.x1, billboard.y0, billboard.y1);
+        billboard.x0 *= mul;
+        billboard.x1 *= mul;
+        billboard.y0 *= mul;
+        billboard.y1 *= mul;
         billboard.mirror = mirror;
         out.push_back(billboard);
     }
@@ -1548,17 +1474,12 @@ void* RenderSpritePreview(const O2rSpriteTex& sprite, int frameIndex, bool mirro
             continue;
         }
         const Lightbulb::O2rSpriteFrame& f = sprite.frames[frameIdx];
-        const float fxf = lone ? 1.0f : sprite.dispW / (float)f.frameW;
-        const float fyf = lone ? 1.0f : sprite.dispH / (float)f.frameH;
         for (size_t chunkIdx = 0; chunkIdx < f.chunks.size(); ++chunkIdx) {
             if (lone && (int)chunkIdx != chunkIndex) {
                 continue;
             }
-            const Lightbulb::O2rSpriteChunk& chunk = f.chunks[chunkIdx];
-            const float x0 = (float)(chunk.posX - f.originX) * fxf;
-            const float x1 = (float)(chunk.posX - f.originX + chunk.width - 1) * fxf;
-            const float y1 = (float)(f.originY - chunk.posY) * fyf;
-            const float y0 = (float)(f.originY - chunk.posY - (chunk.height - 1)) * fyf;
+            float x0, x1, y0, y1;
+            SpriteChunkRect(sprite, f, f.chunks[chunkIdx], lone, x0, x1, y0, y1);
             if (first) {
                 minx = x0, maxx = x1, miny = y0, maxy = y1, first = false;
             }
@@ -1598,7 +1519,7 @@ void* RenderSpritePreview(const O2rSpriteTex& sprite, int frameIndex, bool mirro
     drawParams.radius = ext;
     drawParams.fovYDeg = 40.0f;
     drawParams.drawBackdrop = true;
-    const float tanHalf = std::tan(drawParams.fovYDeg * 0.5f * 3.14159265f / 180.0f);
+    const float tanHalf = std::tan(rad(drawParams.fovYDeg) * 0.5f);
     drawParams.distance = ext * 1.15f / tanHalf;
 
     Gfx* displayList =

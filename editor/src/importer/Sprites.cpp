@@ -5,6 +5,8 @@ extern "C" {
 }
 
 #include "port/Resource/Type/Sprite.h"
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <fast/Fast3dGui.h>
 #include <fast/resource/type/Texture.h>
@@ -164,6 +166,19 @@ bool adapt(const std::string& base, O2rSpriteTex& out, std::shared_ptr<Factories
         out.frames.push_back(std::move(frame));
     }
 
+    bool any = false;
+    for (const O2rSpriteFrame& frame : out.frames) {
+        for (const O2rSpriteChunk& chunk : frame.chunks) {
+            float x0, x1, y0, y1;
+            SpriteChunkRect(out, frame, chunk, false, x0, x1, y0, y1);
+            const float half = 0.5f * std::fabs(x1 - x0);
+            out.pickHalfWidth = any ? std::max(out.pickHalfWidth, half) : half;
+            out.pickLowY = any ? std::min(out.pickLowY, y0) : y0;
+            out.pickHighY = any ? std::max(out.pickHighY, y1) : y1;
+            any = true;
+        }
+    }
+
     keepAlive = sprite;
     out.loaded = !out.frames.empty();
     return out.loaded;
@@ -171,40 +186,28 @@ bool adapt(const std::string& base, O2rSpriteTex& out, std::shared_ptr<Factories
 
 } // namespace
 
-bool LoadO2rSprite(uint32_t assetId, O2rSpriteTex& out) {
+const O2rSpriteTex* LoadO2rSprite(uint32_t assetId) {
     auto& cache = spriteCache();
     if (auto cit = cache.find(assetId); cit != cache.end()) {
-        out = cit->second.data;
-        return out.loaded;
+        return cit->second.data.loaded ? &cit->second.data : nullptr;
     }
-    out = O2rSpriteTex{};
     CachedSprite& cached = cache[assetId];
     ensureIndex();
     auto found = spriteIndex().find(assetId);
-    if (found == spriteIndex().end()) {
-        return false;
+    if (found == spriteIndex().end() || !adapt(found->second, cached.data, cached.keepAlive)) {
+        return nullptr;
     }
-    if (!adapt(found->second, cached.data, cached.keepAlive)) {
-        return false;
-    }
-    out = cached.data;
-    return true;
+    return &cached.data;
 }
 
-bool LoadO2rSpriteByPath(const std::string& basePath, O2rSpriteTex& out) {
+const O2rSpriteTex* LoadO2rSpriteByPath(const std::string& basePath) {
     const uint32_t key = 0x80000000u | (std::hash<std::string>{}(basePath)&0x7FFFFFFFu);
     auto& cache = spriteCache();
     if (auto cit = cache.find(key); cit != cache.end()) {
-        out = cit->second.data;
-        return out.loaded;
+        return cit->second.data.loaded ? &cit->second.data : nullptr;
     }
     CachedSprite& cached = cache[key];
-    if (!adapt(basePath, cached.data, cached.keepAlive)) {
-        out = O2rSpriteTex{};
-        return false;
-    }
-    out = cached.data;
-    return true;
+    return adapt(basePath, cached.data, cached.keepAlive) ? &cached.data : nullptr;
 }
 
 std::vector<std::string> ListO2rSpritePaths() {

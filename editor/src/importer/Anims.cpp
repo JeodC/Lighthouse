@@ -191,28 +191,24 @@ void ResetAnimCache() {
     animCache().clear();
 }
 
-namespace {}
-
 std::vector<std::string> ListO2rAnimPaths() {
     return ListO2rResourcePaths("anim");
 }
 
-bool LoadO2rAnim(const std::string& path, O2rAnim& out) {
+const O2rAnim* LoadO2rAnim(const std::string& path) {
     auto& cache = animCache();
     if (auto found = cache.find(path); found != cache.end()) {
-        out = found->second;
-        return out.loaded;
+        return found->second.loaded ? &found->second : nullptr;
     }
-    out = O2rAnim{};
-    O2rAnim& cached = cache[path];
+    O2rAnim& out = cache[path];
 
     auto resources = Ship::Context::GetRawInstance()->GetResourceManager();
     if (!resources) {
-        return false;
+        return nullptr;
     }
     auto blob = std::static_pointer_cast<Ship::Blob>(resources->LoadResource(path));
     if (!blob || blob->Data.empty()) {
-        return false;
+        return nullptr;
     }
     Reader reader{ blob->Data.data(), blob->Data.size(), 0 };
 
@@ -243,8 +239,7 @@ bool LoadO2rAnim(const std::string& path, O2rAnim& out) {
         out.channels.push_back(std::move(channel));
     }
     out.loaded = reader.valid && !out.channels.empty();
-    cached = out;
-    return out.loaded;
+    return out.loaded ? &out : nullptr;
 }
 
 const std::unordered_map<uint64_t, float>& animIndex() {

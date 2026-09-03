@@ -89,8 +89,7 @@ bool cameraMatches(int selected, const char* filter, const Lightbulb::SetupCamer
     }
     char index[16];
     std::snprintf(index, sizeof(index), "%d", (int)cam.index);
-    return Lightbulb::ui::ContainsNoCase(camTypeName(cam.type), filter) ||
-           Lightbulb::ui::ContainsNoCase(index, filter);
+    return Lightbulb::ui::ContainsNoCase(camTypeName(cam.type), filter) || Lightbulb::ui::ContainsNoCase(index, filter);
 }
 
 const char* nodeCategoryName(uint8_t category) {
@@ -180,13 +179,10 @@ struct ObjectKind {
     int value;
 };
 const ObjectKind kObjectKinds[] = {
-    { "All kinds", false, -1 },       { "Model", false, 2 },
-    { "Sprite", false, 0 },
-    { "Warp", true, 3 },              { "Contact trigger", true, 4 },
-    { "Actor spawn", true, 6 },       { "Enemy boundary", true, 7 },
-    { "Path node", true, 8 },         { "Camera trigger", true, 9 },
-    { "Flag", true, 10 },             { "Other nodes", true, -1 },
-    { "Script waypoint", true, -2 },
+    { "All kinds", false, -1 },    { "Model", false, 2 },          { "Sprite", false, 0 },
+    { "Warp", true, 3 },           { "Contact trigger", true, 4 }, { "Actor spawn", true, 6 },
+    { "Enemy boundary", true, 7 }, { "Path node", true, 8 },       { "Camera trigger", true, 9 },
+    { "Flag", true, 10 },          { "Other nodes", true, -1 },    { "Script waypoint", true, -2 },
 };
 const int kObjectKindCount = (int)(sizeof(kObjectKinds) / sizeof(kObjectKinds[0]));
 
@@ -201,15 +197,15 @@ bool kindMatchesProp(int selected, uint8_t type) {
 // Names for the two 3-bit switches in func_803422D4, the routine that applies a waypoint.
 const char* legHeadingModeName(uint8_t mode) {
     static const char* kNames[] = {
-        "unchanged",       "face along the path",   "stop using yaw",        "use yaw",
-        "stop using pitch", "use pitch",            "stop using yaw+pitch",  "use yaw+pitch",
+        "unchanged",        "face along the path", "stop using yaw",       "use yaw",
+        "stop using pitch", "use pitch",           "stop using yaw+pitch", "use yaw+pitch",
     };
     return mode < 8 ? kNames[mode] : "?";
 }
 
 const char* legAnimModeName(uint8_t mode) {
-    static const char* kNames[] = { "unchanged", "unchanged", "play once", "play once reversed",
-                                    "loop",      "loop reversed", "hold",  "unchanged" };
+    static const char* kNames[] = { "unchanged", "unchanged",     "play once", "play once reversed",
+                                    "loop",      "loop reversed", "hold",      "unchanged" };
     return mode < 8 ? kNames[mode] : "?";
 }
 
@@ -561,8 +557,8 @@ void App::DrawLevelsPanel() {
         }
         if (overView && !io.WantTextInput) {
             if (io.MouseWheel != 0.0f) {
-                mConfig.cameraSpeed = std::clamp(mConfig.cameraSpeed + (io.MouseWheel > 0.0f ? 10.0f : -10.0f),
-                                                 10.0f, 100.0f);
+                mConfig.cameraSpeed =
+                    std::clamp(mConfig.cameraSpeed + (io.MouseWheel > 0.0f ? 10.0f : -10.0f), 10.0f, 100.0f);
                 SaveSettings();
             }
             float look[3], right[3];
@@ -711,39 +707,52 @@ void App::DrawObjectsTab() {
             ImGui::TableSetupColumn("Object", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableHeadersRow();
-            for (const int row : mObjVisible) {
-                const bool isNode = row >= propCount;
-                const std::string label = isNode ? nodeLabel(mSetup.nodes[row - propCount], dim)
-                                                 : propLabel(mSetup.props[row], dim);
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                char sel[32];
-                if (isNode) {
-                    std::snprintf(sel, sizeof(sel), "%d##node%d", row, row - propCount);
-                } else {
-                    std::snprintf(sel, sizeof(sel), "%d##prop%d", row, row);
+            // Only rows in view get built; the one being revealed is forced in so it can be scrolled to.
+            ImGuiListClipper clipper;
+            clipper.Begin((int)mObjVisible.size());
+            if (mScrollToSel) {
+                const auto revealed = std::find(mObjVisible.begin(), mObjVisible.end(), mPropSel);
+                if (revealed != mObjVisible.end()) {
+                    clipper.IncludeItemByIndex((int)(revealed - mObjVisible.begin()));
                 }
-                if (ImGui::Selectable(sel, row == mPropSel,
-                                      ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
-                    mPropSel = row;
-                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                        FocusSelection();
+            }
+            while (clipper.Step()) {
+                for (int item = clipper.DisplayStart; item < clipper.DisplayEnd; ++item) {
+                    const int row = mObjVisible[item];
+                    const bool isNode = row >= propCount;
+                    const std::string label =
+                        isNode ? nodeLabel(mSetup.nodes[row - propCount], dim) : propLabel(mSetup.props[row], dim);
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    char sel[32];
+                    if (isNode) {
+                        std::snprintf(sel, sizeof(sel), "%d##node%d", row, row - propCount);
+                    } else {
+                        std::snprintf(sel, sizeof(sel), "%d##prop%d", row, row);
                     }
-                }
-                if (mScrollToSel && row == mPropSel) {
-                    ImGui::SetScrollHereY(0.5f);
-                }
-                ImGui::TableNextColumn();
-                if (isNode) {
-                    ImGui::TextDisabled("%s", nodeKindName(mSetup.nodes[row - propCount]));
-                } else {
-                    ImGui::TextDisabled("%s", propKindName(mSetup.props[row].type));
-                }
-                ImGui::TableNextColumn();
-                if (dim) {
-                    ImGui::TextDisabled("%s", label.c_str());
-                } else {
-                    ImGui::TextUnformatted(label.c_str());
+                    if (ImGui::Selectable(sel, row == mPropSel,
+                                          ImGuiSelectableFlags_SpanAllColumns |
+                                              ImGuiSelectableFlags_AllowDoubleClick)) {
+                        mPropSel = row;
+                        if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                            FocusSelection();
+                        }
+                    }
+                    if (mScrollToSel && row == mPropSel) {
+                        ImGui::SetScrollHereY(0.5f);
+                    }
+                    ImGui::TableNextColumn();
+                    if (isNode) {
+                        ImGui::TextDisabled("%s", nodeKindName(mSetup.nodes[row - propCount]));
+                    } else {
+                        ImGui::TextDisabled("%s", propKindName(mSetup.props[row].type));
+                    }
+                    ImGui::TableNextColumn();
+                    if (dim) {
+                        ImGui::TextDisabled("%s", label.c_str());
+                    } else {
+                        ImGui::TextUnformatted(label.c_str());
+                    }
                 }
             }
             ImGui::EndTable();
@@ -1247,10 +1256,9 @@ void App::DrawSelectionProperties() {
     }
 
     const Lightbulb::SetupProp& prop = mSetup.props[mPropSel];
-    static const char* kType[] = { "Sprite", "Actor", "Model" };
     ImGui::Text("Placed object #%d", mPropSel);
     ImGui::Separator();
-    ImGui::Text("Type        : %s", prop.type < 3 ? kType[prop.type] : "?");
+    ImGui::Text("Type        : %s", propKindName(prop.type));
     if (prop.type == 2) {
         ImGui::Text("Model asset : %s", assetFullName(mModelIndex, 0x2D1u + prop.id).c_str());
     } else if (prop.type == 0) {
@@ -1265,8 +1273,8 @@ void App::DrawSelectionProperties() {
     ImGui::Text("Scale       : %u", (unsigned)prop.scale);
     ImGui::Text("Flags       : 0x%02X", (unsigned)prop.flags);
     ImGui::Spacing();
-    Lightbulb::ui::TextDisabledWrapped("Editing placed objects (move / properties / add / delete) and writing "
-                                       "the setup back to the o2r is coming next.");
+    Lightbulb::ui::TextDisabledWrapped("Moving and editing placed objects, and writing the setup back to the o2r, "
+                                       "come next.");
 }
 
 void App::DrawLevelProperties() {

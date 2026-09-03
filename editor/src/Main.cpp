@@ -1,10 +1,3 @@
-extern "C" {
-#include <libultra/exception.h>
-}
-
-#include <stdlib.h>
-#include <string.h>
-
 #include "O2rImport.h"
 #include <SDL.h>
 

@@ -1,6 +1,6 @@
 #include "App.h"
+#include "LevelView.h"
 #include "O2rImport.h"
-#include <spdlog/spdlog.h>
 
 #include "PreviewScene.h"
 #include "UiCommon.h"
@@ -52,7 +52,7 @@ void App::DrawModelViewer() {
         return;
     }
     if (!mO2rLoaded) {
-        ImGui::TextWrapped("Open anim bk.o2r to browse its models.");
+        ImGui::TextWrapped("Open a bk.o2r to browse its models.");
         if (ImGui::Button("Open bk.o2r...")) {
             OpenO2r();
         }
@@ -138,12 +138,11 @@ void App::DrawO2rBrowser(const char* idPrefix, const char* assetDir, O2rView& vi
                         view.animProgress = 0.0f;
                         view.animPlay = true;
                         const float tableDuration = Lightbulb::AnimDuration(modelAsset, assetId(animName));
-                        Lightbulb::O2rAnim anim;
                         if (tableDuration > 0.0f && tableDuration < 600.0f) {
                             view.animDuration = tableDuration;
-                        } else if (Lightbulb::LoadO2rAnim(view.animPaths[row], anim) &&
-                                   anim.endFrame > anim.startFrame) {
-                            view.animDuration = (float)(anim.endFrame - anim.startFrame) / 30.0f;
+                        } else if (const Lightbulb::O2rAnim* anim = Lightbulb::LoadO2rAnim(view.animPaths[row]);
+                                   anim && anim->endFrame > anim->startFrame) {
+                            view.animDuration = (float)(anim->endFrame - anim->startFrame) / 30.0f;
                         }
                     }
                     ++shown;
@@ -319,10 +318,9 @@ void App::DrawO2rBrowser(const char* idPrefix, const char* assetDir, O2rView& vi
             Mtx boneMtx[256];
             int boneN = 0;
             if (model && view.animSel >= 0 && view.animSel < (int)view.animPaths.size()) {
-                Lightbulb::O2rAnim anim;
-                if (Lightbulb::LoadO2rAnim(view.animPaths[view.animSel], anim)) {
+                if (const Lightbulb::O2rAnim* anim = Lightbulb::LoadO2rAnim(view.animPaths[view.animSel])) {
                     static std::vector<Lightbulb::BonePose> poses;
-                    Lightbulb::SampleO2rAnim(anim, view.animProgress, poses);
+                    Lightbulb::SampleO2rAnim(*anim, view.animProgress, poses);
                     boneN = Lightbulb::BuildBoneMatrices(model, poses, boneMtx, 256);
                     if (boneN > 0) {
                         drawParams.boneMtx = boneMtx;
@@ -352,7 +350,7 @@ void App::DrawO2rBrowser(const char* idPrefix, const char* assetDir, O2rView& vi
                 if (pan < 1.0f) {
                     pan = 1.0f;
                 }
-                const float yawRad = view.yaw * 3.14159265f / 180.0f;
+                const float yawRad = view.yaw * Lightbulb::kDeg;
                 const float yawCos = std::cos(yawRad);
                 const float yawSin = std::sin(yawRad);
                 if (ImGui::IsKeyDown(ImGuiKey_W)) {
