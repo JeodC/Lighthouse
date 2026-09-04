@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <libultraship/libultra/gbi.h>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -28,12 +29,103 @@ struct BKLevel {
     const char* name;
     uint16_t opaModel;
     uint16_t xluModel;
+    int16_t cubeMin[3];
+    int16_t cubeMax[3];
+    float scale;
 };
 inline uint16_t BKLevelSetupAsset(const BKLevel& level) {
     return static_cast<uint16_t>(level.mapId + 0x71C);
 }
 extern const BKLevel kBKLevels[];
 extern const int kBKLevelCount;
+const BKLevel* FindBKLevel(uint16_t mapId);
+const char* LevelEnumName(int level);
+int VanillaMapLevel(int mapId);
+// A warp arrives at whichever node carries the entry-point actor its exit id names.
+uint32_t EntryActorForExit(uint32_t exitId);
+bool ActorIsEntryPoint(uint32_t actorId);
+} // namespace Lightbulb
+
+namespace Lightbulb {
+// The settings aGameConfig carries, in the order Torch keys them.
+enum GameConfigKey {
+    kNewGameMap = 0,
+    // The map halves of the two warps below, cut from those same two bytes as a byte, not a word.
+    kStartLevel1,
+    kStartLevel2,
+    kKnowAllMoves,
+    kMumboCostTermite,
+    kMumboCostCroc,
+    kMumboCostWalrus,
+    kMumboCostPumpkin,
+    kMumboCostBee,
+    kEggsMax,
+    kRedFeathersMax,
+    kGoldFeathersMax,
+    kEggsCheatoMax,
+    kRedFeathersCheatoMax,
+    kGoldFeathersCheatoMax,
+    kNotesMax,
+    kJiggiesPerWorld,
+    kHoneycombsPerWorld,
+    kExtraHoneycombStart,
+    kWarpExitBanjosHouse,
+    kWarpEnterLair,
+    kSpecialLevel,
+    kHideJiggiesLevel,
+    kHideCollectiblesLevel,
+    kGameConfigKeyCount
+};
+// The halfword a hack's instruction patch leaves in the config. Lighthouse reads the key's
+// presence, not this value, and keeps it only so a written config carries what a hack would.
+constexpr int kKnowAllMovesOn = 0x0F98;
+
+// A romhack's settings, as Torch writes them to assets/aGameConfig. Per-map tables hold only
+// the rows the hack changed; the game's own tables stand for the rest.
+struct GameConfig {
+    std::string romName;
+    int constants[kGameConfigKeyCount] = {};
+    // Which constants the blob actually carried. The game's own value stands for the rest, so a
+    // writer emits only these - and for kKnowAllMoves the flag is the setting.
+    bool constantSet[kGameConfigKeyCount] = {};
+    int noteDoors[12] = {};
+    struct JiggyPuzzle {
+        int cost = 0, size = 0, flag = 0;
+    };
+    JiggyPuzzle puzzles[11];
+    std::string levelNames[13];
+    struct ReturnToLair {
+        int map = -1, exit = -1;
+    };
+    ReturnToLair returnToLair[11];
+    struct MusicRow {
+        int track1 = 0, track2 = 0;
+    };
+    struct SkyRow {
+        int models[3] = { 0, 0, 0 };
+        float scales[3] = { 1, 1, 1 };
+        float rotations[3] = { 0, 0, 0 };
+    };
+    struct SceneDef {
+        int opa = 0, xlu = 0;
+        int cubeMin[3] = { 0, 0, 0 };
+        int cubeMax[3] = { 0, 0, 0 };
+        float scale = 1.0f;
+    };
+    std::map<int, int> sceneRemap; // map -> level
+    std::map<int, MusicRow> music; // by map
+    std::map<int, SkyRow> skybox;  // by map
+    std::map<int, SceneDef> sceneDefs;
+    std::map<int, int> warpDests; // warp index -> map << 8 | entry
+    int customCodeKind = 0;
+    uint32_t customCodeRamBase = 0;
+    std::string customCodeSha1;
+    std::string romSha1;
+    bool fromArchive = false;
+};
+GameConfig VanillaGameConfig();
+// Vanilla, then whatever the mounted archives' aGameConfig lays over it. False when there is none.
+bool LoadO2rGameConfig(GameConfig& out);
 } // namespace Lightbulb
 
 namespace Lightbulb {
@@ -189,6 +281,7 @@ void PlayMusicTrack(int trackId);
 void StopMusic();
 void ReleaseMusicTracks();
 int LevelMusicTrack(uint16_t mapId);
+int LevelMusicTrack2(uint16_t mapId);
 void StartLevelMusic(uint16_t mapId);
 void StopLevelMusic();
 void SetAudioListener(const float pos[3], uint16_t mapId, BKModelBin* opaque, BKModelBin* translucent);
@@ -220,6 +313,19 @@ struct SkyLayerInfo {
     float rotSpeed;
 };
 int SkyLayersForMap(uint16_t mapId, SkyLayerInfo out[3]);
+
+// Where a warp sends Banjo with no override, or -1 when its handler works the destination out.
+int VanillaWarpDest(int warp);
+
+// Every warp the game names, in slot order. The name carries the world it belongs to.
+int WarpCount();
+int WarpIdAt(int index);
+const char* WarpName(int index);
+
+// The skybox and cloud models the game ships, for picking one by name.
+int SkyModelCount();
+uint32_t SkyModelId(int index);
+const char* SkyModelName(uint32_t id);
 } // namespace Lightbulb
 
 namespace Lightbulb {

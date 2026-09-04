@@ -31,6 +31,7 @@ void lh_setListenerMap(s32 mapId);
 void lh_setListenerUnderwater(s32 underwater);
 void core1_ce60_func_8024BD40(s32 arg0, s32 arg1);
 void func_8032278C(s32 arg0, s32 arg1);
+s32 func_80322714(enum map_e map_id);
 extern s32 D_802762C0;
 }
 
@@ -38,7 +39,7 @@ namespace Lightbulb {
 namespace {
 
 // A triangle's collision type sits in the second byte of its flags; 3 and 4 are the two
-// water surfaces. Banjo's Backpack reads the same byte as its CollisionType.
+// water surfaces.
 constexpr s32 kCollisionTypeWater = 3;
 constexpr s32 kCollisionTypeWater2 = 4;
 
@@ -166,6 +167,10 @@ void StartLevelMusic(uint16_t mapId) {
 
 int LevelMusicTrack(uint16_t mapId) {
     return core2_9B650_getMusicTrackFromMap((enum map_e)mapId);
+}
+
+int LevelMusicTrack2(uint16_t mapId) {
+    return func_80322714((enum map_e)mapId);
 }
 
 } // namespace Lightbulb

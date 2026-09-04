@@ -98,6 +98,8 @@ private:
     void Redo();
     void EditShortcuts();
     void DrawHistory();
+    void DrawGameConfig();
+    const std::vector<uint32_t>& EntryActorsForMap(int mapId);
     bool SelectionFocusTarget(float outCenter[3], float& outRadius) const;
     void DrawReloadOffer();
     void DrawPreferences();
@@ -132,6 +134,7 @@ private:
     bool mShowMusic = false;
     bool mMusicPanelOpen = false;
     bool mShowHistory = false;
+    bool mShowGameConfig = false;
     bool mShowPreferences = false;
     bool mShowCredits = false;
 
@@ -215,6 +218,12 @@ private:
     };
     LevelScene mLevelScene;
     Lightbulb::SetupScene mSetup;
+    Lightbulb::GameConfig mGameConfig;
+    bool mGameConfigDirty = false;
+    char mWarpFilter[64] = {};
+    bool mWarpChangedOnly = false;
+    // Entry-point actors a map places, read from its setup the first time a warp points there.
+    std::map<int, std::vector<uint32_t>> mMapEntryActors;
     // Each step is a snapshot of the two lists that can change, kept per loaded level.
     struct SetupEdit {
         std::vector<Lightbulb::SetupProp> props;
@@ -240,5 +249,6 @@ private:
     std::vector<PickTarget> mPickTargets;
     std::map<uint32_t, std::string> mModelIndex;
     std::map<uint32_t, std::string> mSpriteIndex;
+    std::map<uint32_t, std::string> mSetupIndex;
     bool mHudTexReady = false;
 };

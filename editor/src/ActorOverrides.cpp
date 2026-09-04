@@ -29,7 +29,7 @@ void SetActorOverridesEnabled(bool on) {
 }
 
 bool EditorEntryPointId(uint32_t id) {
-    return id == 0x01 || id == 0x02 || id == 0x15 || (id >= 0x72 && id <= 0x7F) || (id >= 0x103 && id <= 0x105);
+    return ActorIsEntryPoint(id);
 }
 
 // The game draws nothing for these, so the editor substitutes marker models.

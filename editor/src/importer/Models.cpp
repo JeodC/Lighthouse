@@ -14,6 +14,15 @@ const BKLevel kBKLevels[] = {
 };
 const int kBKLevelCount = sizeof(kBKLevels) / sizeof(kBKLevels[0]);
 
+const BKLevel* FindBKLevel(uint16_t mapId) {
+    for (const BKLevel& level : kBKLevels) {
+        if (level.mapId == mapId) {
+            return &level;
+        }
+    }
+    return nullptr;
+}
+
 namespace {
 struct CachedModel {
     std::shared_ptr<Ship::Blob> blob;

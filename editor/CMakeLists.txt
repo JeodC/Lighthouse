@@ -124,6 +124,10 @@ set(ED_MODELH_SOURCES
     ${ED}/src/ModelViewer.cpp
     ${ED}/src/LevelScene.cpp
     ${ED}/src/Panels.cpp
+    ${ED}/src/Properties.cpp
+    ${ED}/src/EditHistory.cpp
+    ${ED}/src/LevelHud.cpp
+    ${ED}/src/GameConfigEditor.cpp
     ${ED}/src/SpriteViewer.cpp
     ${ED}/src/ActorOverrides.cpp
     ${ED}/src/PreviewScene.cpp

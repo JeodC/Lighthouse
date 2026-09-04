@@ -438,9 +438,9 @@ bool sns_get_item_state(enum StopNSwop_Item item, s32 set) {
 int port_getRomhackMusic(int map_id, int* out_track1, int* out_track2) {
     return 0;
 }
-// Not a variant selector like the jiggy and flag stubs below: Spiral Mountain gates its
+// Not a variant selector: Spiral Mountain gates its
 // whole near-the-lair crossfade on this, so a fresh-save answer would mean the music never
-// changes there. The editor answers as though every move was learned.
+// changes there. The editor answers yes.
 int chmole_learnedAllSpiralMountainAbilities(void) {
     return 1;
 }

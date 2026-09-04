@@ -45,6 +45,56 @@ const MapOverlayRow kMapOverlays[] = {
 #include "MapOverlays.inc"
 };
 
+struct MapLevelRow {
+    uint16_t map;
+    uint16_t level;
+};
+const MapLevelRow kMapLevels[] = {
+#include "MapLevels.inc"
+};
+
+// A warp's exit id and the entry-point actor the destination map must place for it,
+// straight from func_803084F0.
+struct ExitActor {
+    uint16_t exit;
+    uint16_t actor;
+};
+const ExitActor kExitActors[] = {
+#include "ExitActors.inc"
+};
+
+struct SkyModel {
+    uint32_t id;
+    const char* name;
+};
+const SkyModel kSkyModels[] = {
+#include "SkyModels.inc"
+};
+
+struct WarpName {
+    uint16_t warp;
+    const char* name;
+};
+const WarpName kWarpNames[] = {
+#include "WarpNames.inc"
+};
+
+struct WarpDest {
+    uint16_t warp;
+    uint16_t dest;
+};
+const WarpDest kWarpDests[] = {
+#include "WarpDests.inc"
+};
+
+struct LevelName {
+    uint32_t level;
+    const char* name;
+};
+const LevelName kLevelNames[] = {
+#include "LevelEnum.inc"
+};
+
 bool spawnSetHas(uint16_t overlay, uint32_t actorId) {
     const SpawnSetRow* end = kSpawnSets + sizeof(kSpawnSets) / sizeof(kSpawnSets[0]);
     const SpawnSetRow key = { overlay, (uint16_t)actorId };
@@ -94,6 +144,42 @@ bool ActorIsSpawnable(uint32_t actorId) {
     return actorId <= 0xFFFF && std::binary_search(actors.begin(), actors.end(), (uint16_t)actorId);
 }
 
+uint32_t EntryActorForExit(uint32_t exitId) {
+    for (const ExitActor& row : kExitActors) {
+        if (row.exit == exitId) {
+            return row.actor;
+        }
+    }
+    return 0;
+}
+
+bool ActorIsEntryPoint(uint32_t actorId) {
+    for (const ExitActor& row : kExitActors) {
+        if (row.actor == actorId) {
+            return true;
+        }
+    }
+    return false;
+}
+
+const char* LevelEnumName(int level) {
+    for (const LevelName& row : kLevelNames) {
+        if ((int)row.level == level) {
+            return row.name;
+        }
+    }
+    return nullptr;
+}
+
+int VanillaMapLevel(int mapId) {
+    for (const MapLevelRow& row : kMapLevels) {
+        if ((int)row.map == mapId) {
+            return row.level;
+        }
+    }
+    return -1;
+}
+
 bool ActorRegisteredForMap(uint16_t mapId, uint32_t actorId) {
     uint16_t overlay = 0;
     for (const MapOverlayRow& row : kMapOverlays) {
@@ -121,6 +207,44 @@ int MapExtraModels(uint16_t mapId, MapExtraModel out[3]) {
 }
 
 extern "C" int lb_skyLayers(int mapId, short outModel[3], float outScale[3], float outRotSpeed[3]);
+
+int SkyModelCount() {
+    return (int)(sizeof(kSkyModels) / sizeof(kSkyModels[0]));
+}
+
+uint32_t SkyModelId(int index) {
+    return kSkyModels[index].id;
+}
+
+const char* SkyModelName(uint32_t id) {
+    for (const SkyModel& row : kSkyModels) {
+        if (row.id == id) {
+            return row.name;
+        }
+    }
+    return nullptr;
+}
+
+int WarpCount() {
+    return (int)(sizeof(kWarpNames) / sizeof(kWarpNames[0]));
+}
+
+int WarpIdAt(int index) {
+    return kWarpNames[index].warp;
+}
+
+const char* WarpName(int index) {
+    return kWarpNames[index].name;
+}
+
+int VanillaWarpDest(int warp) {
+    for (const WarpDest& row : kWarpDests) {
+        if (row.warp == warp) {
+            return row.dest;
+        }
+    }
+    return -1;
+}
 
 int SkyLayersForMap(uint16_t mapId, SkyLayerInfo out[3]) {
     short models[3];

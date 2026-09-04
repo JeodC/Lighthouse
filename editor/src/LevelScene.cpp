@@ -213,7 +213,7 @@ bool App::RenderLevelGameFrame() {
             continue;
         }
         if (nd.category == 6) {
-            // With models off the node takes the stand-in or gizmo path below like any other.
+            // With models off the node falls through to the stand-in or gizmo path below.
             const uint32_t assetId = mConfig.actorModels ? Lightbulb::ActorDisplayAsset(nd.id) : 0;
             if (assetId) {
                 if (!(mConfig.layers & Lightbulb::kLayerActors)) {

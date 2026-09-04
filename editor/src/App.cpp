@@ -130,6 +130,8 @@ void App::ResetLoadedScene() {
     mPropSel = -1;
     mModelIndex.clear();
     mSpriteIndex.clear();
+    mSetupIndex.clear();
+    mMapEntryActors.clear();
     mPickTargets.clear();
     mHudTexReady = false;
 }
@@ -149,6 +151,8 @@ bool App::OpenO2rPath(const std::string& path) {
     SaveSettings();
     mStatus = "Loaded " + path;
     Lightbulb::StartAudioEngine();
+    Lightbulb::LoadO2rGameConfig(mGameConfig);
+    mGameConfigDirty = false;
     return true;
 }
 
@@ -169,6 +173,8 @@ bool App::OpenRomhackPath(const std::string& path) {
     Lightbulb::ReleaseMusicTracks();
     mMusicView.paths.clear();
     mMusicView.playing = -1;
+    Lightbulb::LoadO2rGameConfig(mGameConfig);
+    mGameConfigDirty = false;
     mStatus = "Loaded romhack " + path;
     return true;
 }
@@ -184,6 +190,7 @@ void App::DrawFrame() {
     DrawSoundViewer();
     DrawMusicViewer();
     DrawReloadOffer();
+    DrawGameConfig();
     DrawHistory();
     DrawPreferences();
     DrawCredits();
@@ -257,17 +264,7 @@ void App::DrawMenuBar() {
         ImGui::MenuItem("Sounds...", nullptr, &mShowSounds, mO2rLoaded);
         ImGui::MenuItem("Music...", nullptr, &mShowMusic, mO2rLoaded);
         ImGui::Separator();
-
-        if (auto gui = Ship::Context::GetRawInstance()->GetWindow()->GetGui()) {
-            for (const char* name : { "Console", "Stats" }) {
-                if (auto window = gui->GetGuiWindow(name)) {
-                    if (ImGui::MenuItem(name, nullptr, window->IsVisible())) {
-                        window->ToggleVisibility();
-                    }
-                }
-            }
-        }
-        ImGui::Separator();
+        ImGui::MenuItem("Game Config...", nullptr, &mShowGameConfig, mO2rLoaded);
         ImGui::MenuItem("History...", nullptr, &mShowHistory, mSetup.loaded);
         ImGui::MenuItem("Preferences...", nullptr, &mShowPreferences);
         ImGui::EndMenu();

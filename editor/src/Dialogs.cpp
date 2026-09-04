@@ -147,8 +147,7 @@ void App::DrawPreferences() {
         SaveSettings();
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Draw actors the way their spawn code places them, not "
-                          "raw node values.");
+        ImGui::SetTooltip("Draw actors where their spawn code puts them, not at raw node values.");
     }
     if (ImGui::Checkbox("Draw actor models", &mConfig.actorModels)) {
         SaveSettings();
@@ -169,7 +168,7 @@ void App::DrawPreferences() {
         SaveSettings();
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Start a level's own track when you select it. Music > for the rest.");
+        ImGui::SetTooltip("Start a level's own track when you select it. Tools > Music for the rest.");
     }
 
     ImGui::SeparatorText("Display");
